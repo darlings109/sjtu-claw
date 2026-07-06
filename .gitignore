@@ -1,0 +1,23 @@
+# 环境变量（含 API KEY）
+.env
+
+# Python 产物
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# 运行数据和日志
+data/
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 虚拟环境
+.venv/
