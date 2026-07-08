@@ -8,7 +8,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/marked.min.js"><\/script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,sans-serif;display:flex;height:100vh;background:#f5f5f5}
+body{font-family:-apple-system,sans-serif;display:flex;height:100vh;background:#f5f5f5;--bg:#f5f5f5;--surface:#fff;--border:#e0e0e0;--text:#333;--text2:#999;--accent:#1976d2;--accent-hover:#1565c0;--msg-user:#1976d2;--msg-assistant:#fff;--hover-bg:#f0f0f0;--active-bg:#e3f2fd;--active-border:#90caf9;--danger:#c62828;--danger-bg:#fce4ec}
+@media(prefers-color-scheme:dark){
+body{background:#1a1d27;--bg:#1a1d27;--surface:#222535;--border:#2e3147;--text:#e4e6f0;--text2:#9098b8;--accent:#5c6ef0;--accent-hover:#6e7ef8;--msg-user:#5c6ef0;--msg-assistant:#1a1d27;--hover-bg:#222535;--active-bg:#1a2d5c;--active-border:#5c6ef0;--danger:#f87171;--danger-bg:#2e3147}
+}
 .sidebar{width:260px;background:#fff;border-right:1px solid #e0e0e0;display:flex;flex-direction:column;flex-shrink:0}
 .sidebar h2{padding:18px 16px;font-size:16px;color:#333;border-bottom:1px solid #eee}
 #session-list{flex:1;overflow-y:auto;padding:6px 8px}
@@ -26,17 +29,17 @@ body{font-family:-apple-system,sans-serif;display:flex;height:100vh;background:#
 .si .btn-rename:hover{background:#bbdefb}
 .si .btn-delete{background:#fce4ec;color:#c62828}
 .si .btn-delete:hover{background:#f8bbd0}
-.btn-new{display:block;margin:8px;padding:10px;background:#1976d2;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:500;text-align:center}
+.btn-new{display:block;margin:8px;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:500;text-align:center}
 .btn-new:hover{background:#1565c0}
 .main{flex:1;display:flex;flex-direction:column;background:#fff}
 #messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
 .msg{max-width:75%;padding:12px 18px;border-radius:14px;font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
-.msg.user{align-self:flex-end;background:#1976d2;color:#fff;border-bottom-right-radius:4px}
-.msg.assistant{align-self:flex-start;background:#fff;border:1px solid #e0e0e0;color:#333;border-bottom-left-radius:4px}
+.msg.user{align-self:flex-end;background:var(--msg-user);color:#fff;border-bottom-right-radius:4px}
+.msg.assistant{align-self:flex-start;background:var(--msg-assistant);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:4px}
 .placeholder{text-align:center;color:#bbb;margin-top:60px;font-size:14px;line-height:2}
 .input-area{display:flex;padding:16px 20px;background:#fff;border-top:1px solid #eee;gap:10px}
 .input-area input{flex:1;padding:12px 18px;border:1px solid #e0e0e0;border-radius:24px;outline:none;font-size:14px}
-.input-area input:focus{border-color:#1976d2}
+.input-area input:focus{border-color:var(--accent)}
 .input-area button{padding:12px 24px;background:#1976d2;color:#fff;border:none;border-radius:24px;cursor:pointer;font-size:14px;font-weight:500}
 .input-area button:disabled{background:#ccc;cursor:not-allowed}
 .approval-card{background:#fff8e1;border:1px solid #ffe082;border-radius:12px;padding:14px 18px;margin:12px 0;align-self:center;min-width:300px;max-width:90%}
@@ -95,8 +98,11 @@ function api(path, opts) {
   });
 }
 
-function load() {
+function load(filter) {
+  if (!filter) filter = '';
   api('/api/sessions').then(function(ss){
+    if (filter) ss = ss.filter(function(s){ return s.title.toLowerCase().indexOf(filter) === -1 && s.session_id.toLowerCase().indexOf(filter) === -1; });
+    ss = ss.filter(function(s){ return s.title.toLowerCase().indexOf(filter.toLowerCase()) !== -1 || s.session_id.toLowerCase().indexOf(filter.toLowerCase()) !== -1; });
     var h = '';
     for (var i = 0; i < ss.length; i++) {
       var s = ss[i];
@@ -160,7 +166,7 @@ function switchTo(id) {
     }
     el.innerHTML = h || '<div class="placeholder">No messages yet</div>';
     el.scrollTop = el.scrollHeight;
-    load();
+    load(document.getElementById('sessionSearch').value.toLowerCase().trim());
   }).catch(function(){});
 }
 
@@ -174,7 +180,7 @@ function doRename(id) {
   var name = prompt('Rename ' + id + ':');
   if (name && name.trim()) {
     api('/api/sessions/' + id + '/rename', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({title:name.trim()})}).then(function(){
-      load();
+      load(document.getElementById('sessionSearch').value.toLowerCase().trim());
       if (cur === id) switchTo(id);
     }).catch(function(){});
   }
@@ -189,7 +195,7 @@ function doDelete(id) {
       document.getElementById('input').disabled = true;
       document.getElementById('btnSend').disabled = true;
     }
-    load();
+    load(document.getElementById('sessionSearch').value.toLowerCase().trim());
   }).catch(function(){});
 }
 
@@ -225,7 +231,7 @@ function sendStream() {
       reader.read().then(function(result) {
         if (result.done) {
           document.getElementById('waiting').style.display = 'none';
-          load();
+          load(document.getElementById('sessionSearch').value.toLowerCase().trim());
           return;
         }
         buffer += decoder.decode(result.value, {stream: true});
@@ -275,7 +281,7 @@ function send() {
     el.innerHTML += '<div class="msg assistant">' + esc(r.reply) + '</div>';
     document.getElementById('waiting').style.display = 'none';
     el.scrollTop = el.scrollHeight;
-    load();
+    load(document.getElementById('sessionSearch').value.toLowerCase().trim());
   }).catch(function(e){
     el.innerHTML += '<div class="msg assistant" style="color:#d32f2f">[Error] ' + esc(e.message) + '</div>';
     document.getElementById('waiting').style.display = 'none';
@@ -431,6 +437,10 @@ document.addEventListener("click", function(e) {
   if (!e.target.closest(".input-area")) {
     document.getElementById("cmdMenu").classList.remove("show");
   }
+});
+
+document.getElementById('sessionSearch').addEventListener('input', function() {
+  load(this.value.toLowerCase().trim());
 });
 
 document.addEventListener('DOMContentLoaded', function(){
