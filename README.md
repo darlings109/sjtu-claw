@@ -1,4 +1,4 @@
-# Claw — 最小 Agent Runtime
+# SJTU-Claw — 最小 Agent Runtime
 
 SJTU 课程项目：从零构建最小 AI Agent Runtime。
 
