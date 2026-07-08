@@ -180,6 +180,12 @@ def main() -> None:
         print(f"[错误] {e}", file=sys.stderr)
         sys.exit(1)
 
+    # 启动 scheduler
+    from src.scheduler import SchedulerEngine
+    from src.agent import process_message
+    _scheduler = SchedulerEngine(config, process_message)
+    _scheduler.start()
+
     # 恢复或创建 session
     all_sessions = list_sessions()
     if all_sessions:

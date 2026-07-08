@@ -155,13 +155,21 @@ class GatewayHandler(SimpleHTTPRequestHandler):
         return str(STATIC_DIR / 'index.html')
 
 
+_scheduler = None
+
 def main():
-    global _config
+    global _config, _scheduler
     try:
         _config = load_config()
     except (FileNotFoundError, ValueError) as e:
         print(f"[ERROR] {e}")
         sys.exit(1)
+
+    # Start scheduler engine
+    from src.scheduler import SchedulerEngine
+    from src.agent import process_message
+    _scheduler = SchedulerEngine(_config, process_message)
+    _scheduler.start()
 
     port = int(sys.argv[2]) if len(sys.argv) > 2 else 5000
     server = ThreadingHTTPServer(('0.0.0.0', port), GatewayHandler)
