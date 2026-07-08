@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SJTUClaw</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.0/github-markdown.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/marked.min.js"><\/script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,sans-serif;display:flex;height:100vh;background:#f5f5f5}
@@ -168,6 +170,7 @@ function doDelete(id) {
 }
 
 function send() {
+  document.getElementById("waiting").style.display = "block";
   var i = document.getElementById('input');
   var t = i.value.trim();
   if (!t || !cur) return;
@@ -178,10 +181,12 @@ function send() {
   el.innerHTML += '<div class="msg user">' + esc(t) + '</div>';
   api('/api/sessions/' + cur + '/messages', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content:t})}).then(function(r){
     el.innerHTML += '<div class="msg assistant">' + esc(r.reply) + '</div>';
+    document.getElementById('waiting').style.display = 'none';
     el.scrollTop = el.scrollHeight;
     load();
   }).catch(function(e){
     el.innerHTML += '<div class="msg assistant" style="color:#d32f2f">[Error] ' + esc(e.message) + '</div>';
+    document.getElementById('waiting').style.display = 'none';
   });
 }
 
@@ -234,6 +239,14 @@ function doReject(id) {
 
 function esc(s) {
   if (!s) return '';
+  if (typeof marked !== 'undefined') {
+    var html = marked.parse(s);
+    // Only use markdown if it contains formatting
+    if (html !== '<p>' + s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</p>
+') {
+      return html;
+    }
+  }
   var d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
