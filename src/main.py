@@ -246,7 +246,7 @@ def main() -> None:
 
         # scheduler 命令
         if re.match(r"^/task", user_input):
-            from src.scheduler import handle_task_command
+            from src.main import handle_task_command
             handle_task_command(config, current, user_input)
             print()
             continue

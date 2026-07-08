@@ -172,7 +172,7 @@ def handle_create_file(path: str, content: str) -> str:
         return "Error: Workspace not set. Use /workspace set <path> first."
     aid = create_approval("create_file", {"path": path, "content_length": len(content)})
     print(f"[approval] {aid}: create file {path}?")
-    if wait_approval(aid, timeout=120):
+    if wait_approval(aid, 120):
         cleanup_approval(aid)
         return create_file(path, content)
     else:
@@ -187,7 +187,7 @@ def handle_overwrite_file(path: str, content: str) -> str:
         return "Error: Workspace not set."
     aid = create_approval("overwrite_file", {"path": path})
     print(f"[approval] {aid}: overwrite file {path}?")
-    if wait_approval(aid, timeout=120):
+    if wait_approval(aid, 120):
         cleanup_approval(aid)
         return overwrite_file(path, content)
     else:
@@ -202,7 +202,7 @@ def handle_edit_file(path: str, old_text: str, new_text: str) -> str:
         return "Error: Workspace not set."
     aid = create_approval("edit_file", {"path": path})
     print(f"[approval] {aid}: edit file {path}?")
-    if wait_approval(aid, timeout=120):
+    if wait_approval(aid, 120):
         cleanup_approval(aid)
         return edit_file(path, old_text, new_text)
     else:
@@ -217,7 +217,7 @@ def handle_new_shell() -> str:
         return "Error: Workspace not set."
     aid = create_approval("new_shell", {})
     print(f"[approval] {aid}: start shell?")
-    if wait_approval(aid, timeout=120):
+    if wait_approval(aid, 120):
         cleanup_approval(aid)
         return new_shell()
     else:
@@ -232,7 +232,7 @@ def handle_run_command(command: str) -> str:
         return "Error: Workspace not set."
     aid = create_approval("run_command", {"command": command[:80]})
     print(f"[approval] {aid}: run command?")
-    if wait_approval(aid, timeout=120):
+    if wait_approval(aid, 120):
         cleanup_approval(aid)
         return run_command(command)
     else:
