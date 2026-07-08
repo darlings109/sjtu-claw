@@ -48,6 +48,11 @@ body{font-family:-apple-system,sans-serif;display:flex;height:100vh;background:#
 .approval-card .btn-ok:hover{background:#388e3c}
 .approval-card .btn-no{background:#e53935;color:#fff}
 .approval-card .btn-no:hover{background:#c62828}
+.tool-card{align-self:flex-start;background:#f5f7fa;border:1px solid #e0e0e0;border-radius:10px;padding:10px 14px;margin:4px 0;font-size:13px;max-width:85%;min-width:200px}
+.tool-card .tool-name{font-weight:600;color:#1976d2}
+.tool-card .tool-args{font-family:monospace;color:#666;margin-top:4px;white-space:pre-wrap;font-size:12px}
+.tool-card .tool-result{background:#e8f5e9;border-color:#a5d6a7;color:#2e7d32}
+.tool-card .tool-error{background:#ffebee;border-color:#ef9a9a;color:#c62828}
 </style>
 </head>
 <body>
@@ -132,7 +137,7 @@ function switchTo(id) {
     var h = '';
     for (var i = 0; i < s.messages.length; i++) {
       var m = s.messages[i];
-      h += '<div class="msg ' + m.role + '">' + esc(m.content) + '</div>';
+      h += renderMsg(m.role, m.content);
     }
     el.innerHTML = h || '<div class="placeholder">No messages yet</div>';
     el.scrollTop = el.scrollHeight;
@@ -237,6 +242,15 @@ function doReject(id) {
   }).catch(function(){});
 }
 
+function renderMsg(role, content) {
+  if (role === 'tool') {
+    var lines = content.split(chr(10));
+    var toolName = lines[0] || 'tool';
+    var resultClass = 'tool-result';
+    return '<div class="tool-card"><div class="tool-name">' + esc(toolName) + '</div><div class="tool-args">' + esc(content.slice(0, 500)) + '</div></div>';
+  }
+  return '<div class="msg ' + role + '">' + esc(content) + '</div>';
+}
 function esc(s) {
   if (!s) return '';
   if (typeof marked !== 'undefined') {
