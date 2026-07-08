@@ -466,6 +466,26 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
+document.getElementById('btnExport').addEventListener('click', function() {
+  if (!cur) return;
+  api('/api/sessions/' + cur).then(function(s) {
+    var md = '# ' + s.title + '
+
+';
+    s.messages.forEach(function(m) {
+      var role = m.role === 'user' ? '**User**' : '**Assistant**';
+      md += role + ': ' + m.content + '
+
+';
+    });
+    var blob = new Blob([md], {type: 'text/markdown'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = s.session_id + '.md';
+    a.click();
+  });
+});
+
 document.addEventListener('DOMContentLoaded', function(){
   document.getElementById('btnNew').addEventListener('click', newSession);
   document.getElementById('btnSend').addEventListener('click', sendStream);
