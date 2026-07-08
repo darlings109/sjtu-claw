@@ -385,7 +385,7 @@ def main():
     _scheduler.start()
 
     port = int(sys.argv[2]) if len(sys.argv) > 2 else 5000
-    server = ThreadingHTTPServer(('0.0.0.0', port), GatewayHandler)
+    server = ThreadingHTTPServer(('127.0.0.1', port), GatewayHandler)
     print(f"Gateway: http://localhost:{port}")
     print(f"Web UI:  http://localhost:{port}")
     try:
