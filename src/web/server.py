@@ -22,6 +22,7 @@ from src.session_store import list_sessions, load_session, create_session, delet
 
 _config = None
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+ATTACHMENTS_DIR = Path("data") / "attachments"
 
 
 class GatewayHandler(SimpleHTTPRequestHandler):
@@ -57,6 +58,37 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                 "messages": [{"role": m["role"], "content": m["content"]} for m in session.messages],
                 "message_count": session.message_count,
             })
+
+        # Download files
+        if path.startswith('/api/downloads/'):
+            dl_id = path.split('/api/downloads/')[1].split('/')[0]
+            from src.workspace import get_download_path
+            file_path = get_download_path(dl_id)
+            if file_path is None:
+                return self._json({"error": "download not found"}, 404)
+            try:
+                data = file_path.read_bytes()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/octet-stream')
+                self.send_header('Content-Disposition', 'attachment; filename="' + file_path.name + '"')
+                self.send_header('Content-Length', str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+            return
+
+        # List session attachments
+        if path.startswith('/api/sessions/') and path.endswith('/attachments'):
+            sid = path.split('/api/sessions/')[1].split('/')[0]
+            attach_dir = ATTACHMENTS_DIR / sid
+            if not attach_dir.exists():
+                return self._json([])
+            items = []
+            for f in attach_dir.iterdir():
+                if f.is_file():
+                    items.append({"filename": f.name, "size": f.stat().st_size})
+            return self._json(items)
 
         # Static files
         if path == '/':
@@ -105,6 +137,20 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                 save_session(session)
                 return self._json({"status": "renamed", "session_id": sid, "title": title})
             return self._json({"error": "title required"}, 400)
+
+        # POST /api/sessions/<id>/attachments
+        if '/attachments' in path:
+            sid = path.split('/api/sessions/')[1].split('/')[0]
+            content_length = int(self.headers.get('Content-Length', 0))
+            if content_length == 0:
+                return self._json({"error": "no data"}, 400)
+            body = self.rfile.read(content_length)
+            import uuid
+            attach_dir = ATTACHMENTS_DIR / sid
+            attach_dir.mkdir(parents=True, exist_ok=True)
+            filename = f"{uuid.uuid4().hex}"
+            (attach_dir / filename).write_bytes(body)
+            return self._json({"filename": filename, "size": len(body), "path": f"{sid}/{filename}"}, 201)
 
         # POST /api/sessions/<id>/messages
         if '/messages' in path:

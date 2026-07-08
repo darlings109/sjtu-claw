@@ -27,12 +27,12 @@ def _estimate_size(messages: List[Dict]) -> int:
 
 
 def _is_tool_result_message(msg: Dict) -> bool:
-    if msg.get("role") != "user":
+    if msg.get("role") != "tool":
         return False
     content = msg.get("content")
-    if not isinstance(content, list):
+    if not isinstance(content, str):
         return False
-    return any(isinstance(b, dict) and b.get("type") == "tool_result" for b in content)
+    return True
 
 
 def _message_has_tool_use(msg: Dict) -> bool:
@@ -82,11 +82,9 @@ def snip_compact(messages: List[Dict]) -> List[Dict]:
 def collect_tool_results(messages: List[Dict]) -> List[Tuple[int, int, Dict]]:
     blocks: List[Tuple[int, int, Dict]] = []
     for mi, msg in enumerate(messages):
-        if msg.get("role") != "user" or not isinstance(msg.get("content"), list):
+        if msg.get("role") != "tool":
             continue
-        for bi, block in enumerate(msg["content"]):
-            if isinstance(block, dict) and block.get("type") == "tool_result":
-                blocks.append((mi, bi, block))
+        blocks.append((mi, 0, {"content": msg.get("content", "")}))
     return blocks
 
 

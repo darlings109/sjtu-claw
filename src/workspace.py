@@ -123,3 +123,62 @@ def edit_file(path: str, old_text: str, new_text: str) -> str:
         if old_text not in t: return f"Error: text not found in {path}"
         r.write_text(t.replace(old_text, new_text, 1)); return f"Edited {path}"
     except Exception as e: return f"Error: {e}"
+
+
+
+# Attachment copy
+def copy_attachment_to_workspace(attachment_path: str, dest_path: str) -> str:
+    """将 Gateway 上传的附件拷贝到 workspace"""
+    from src.web.server import ATTACHMENTS_DIR
+
+    ws = get_workspace()
+    if ws is None:
+        return "Error: Workspace not set"
+
+    # attachment_path: "<session_id>/<filename>"
+    parts = attachment_path.split("/")
+    if len(parts) != 2:
+        return "Error: attachment path format should be <session_id>/<filename>"
+
+    session_id, filename = parts
+    src = ATTACHMENTS_DIR / session_id / filename
+    if not src.exists():
+        return f"Error: attachment not found: {attachment_path}"
+
+    resolved = safe_resolve(dest_path)
+    if resolved is None:
+        return f"Error: destination path outside workspace: {dest_path}"
+
+    try:
+        import shutil
+        resolved.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(str(src), str(resolved))
+        return f"Copied attachment {attachment_path} to {dest_path} ({src.stat().st_size} bytes)"
+    except Exception as e:
+        return f"Error: {e}"
+
+# Download registry
+_downloads: Dict[str, Path] = {}
+_downloads_lock = threading.Lock()
+
+def create_download(path: str) -> str:
+    """为 workspace 内文件创建临时下载入口"""
+    r = safe_resolve(path)
+    if r is None:
+        return "Error: path outside workspace or workspace not set"
+    if not r.exists():
+        return f"Error: file not found: {path}"
+    if not r.is_file():
+        return f"Error: not a file: {path}"
+
+    import uuid
+    download_id = f"dl_{uuid.uuid4().hex[:12]}"
+    with _downloads_lock:
+        _downloads[download_id] = r
+    return f"Download created: /api/downloads/{download_id}  (file: {path}, {r.stat().st_size} bytes)"
+
+
+def get_download_path(download_id: str) -> Optional[Path]:
+    """获取下载文件的实际路径"""
+    with _downloads_lock:
+        return _downloads.get(download_id)
