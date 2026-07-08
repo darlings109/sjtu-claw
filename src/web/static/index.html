@@ -53,6 +53,21 @@ body{font-family:-apple-system,sans-serif;display:flex;height:100vh;background:#
 .tool-card .tool-args{font-family:monospace;color:#666;margin-top:4px;white-space:pre-wrap;font-size:12px}
 .tool-card .tool-result{background:#e8f5e9;border-color:#a5d6a7;color:#2e7d32}
 .tool-card .tool-error{background:#ffebee;border-color:#ef9a9a;color:#c62828}
+
+.cmd-menu{position:absolute;bottom:100%;left:20px;right:20px;background:#fff;border:1px solid #e0e0e0;border-radius:12px 12px 0 0;box-shadow:0 -4px 12px rgba(0,0,0,0.1);max-height:240px;overflow-y:auto;display:none;z-index:100}
+.cmd-menu.show{display:block}
+.cmd-item{padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #f5f5f5;display:flex;justify-content:space-between;align-items:center}
+.cmd-item:last-child{border-bottom:none}
+.cmd-item:hover,.cmd-item.active{background:#e3f2fd}
+.cmd-item .cmd{color:#1976d2;font-weight:600;font-family:monospace}
+.cmd-item .desc{color:#999;font-size:12px}
+
+.msg-wrapper{position:relative;max-width:75%}
+.msg-wrapper .msg{max-width:100%}
+.msg-toolbar{position:absolute;top:-8px;right:-8px;display:none;gap:2px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:2px 4px;box-shadow:0 2px 8px rgba(0,0,0,0.1);z-index:10}
+.msg-wrapper:hover .msg-toolbar{display:flex}
+.msg-toolbar button{width:24px;height:24px;border:none;border-radius:4px;cursor:pointer;font-size:12px;line-height:24px;text-align:center;padding:0;background:transparent;color:#666}
+.msg-toolbar button:hover{background:#e3f2fd;color:#1976d2}
 </style>
 </head>
 <body>
@@ -137,7 +152,11 @@ function switchTo(id) {
     var h = '';
     for (var i = 0; i < s.messages.length; i++) {
       var m = s.messages[i];
-      h += renderMsg(m.role, m.content);
+      if (m.role === 'assistant') {
+        h += '<div class="msg-wrapper">' + renderMsg(m.role, m.content) + '<div class="msg-toolbar"><button class="tb-copy" title="Copy">C</button><button class="tb-regen" title="Regenerate">R</button></div></div>';
+      } else {
+        h += renderMsg(m.role, m.content);
+      }
     }
     el.innerHTML = h || '<div class="placeholder">No messages yet</div>';
     el.scrollTop = el.scrollHeight;
@@ -334,11 +353,110 @@ function esc(s) {
   return d.innerHTML;
 }
 
+
+var COMMANDS = [
+  {cmd:"session new",desc:"Create new session"},
+  {cmd:"session list",desc:"List all sessions"},
+  {cmd:"session switch",desc:"Switch session"},
+  {cmd:"session rename",desc:"Rename session"},
+  {cmd:"session delete",desc:"Delete session"},
+  {cmd:"memory add",desc:"Add memory"},
+  {cmd:"memory list",desc:"List memories"},
+  {cmd:"memory delete",desc:"Delete memory"},
+  {cmd:"skill list",desc:"List skills"},
+  {cmd:"task new",desc:"Create scheduled task"},
+  {cmd:"task list",desc:"List tasks"},
+  {cmd:"task cancel",desc:"Cancel task"},
+  {cmd:"workspace set",desc:"Set workspace"},
+  {cmd:"compact",desc:"Compact context"},
+  {cmd:"exit",desc:"Exit"},
+];
+
+document.getElementById("input").addEventListener("input", function(e) {
+  var val = e.target.value;
+  var menu = document.getElementById("cmdMenu");
+  if (val.startsWith("/")) {
+    var query = val.slice(1).toLowerCase();
+    var matches = COMMANDS.filter(function(c) {
+      return c.cmd.indexOf(query) === 0;
+    }).slice(0, 6);
+    if (matches.length > 0) {
+      menu.innerHTML = matches.map(function(c) {
+        return '<div class="cmd-item" data-cmd="/" + c.cmd + ""><span class="cmd">/' + c.cmd + "</span><span class="desc">" + c.desc + "</span></div>";
+      }).join("");
+      menu.classList.add("show");
+      menu.querySelectorAll(".cmd-item").forEach(function(item) {
+        item.addEventListener("click", function() {
+          document.getElementById("input").value = this.getAttribute("data-cmd") + " ";
+          menu.classList.remove("show");
+          document.getElementById("input").focus();
+        });
+      });
+      return;
+    }
+  }
+  menu.classList.remove("show");
+});
+
+document.getElementById("input").addEventListener("keydown", function(e) {
+  var menu = document.getElementById("cmdMenu");
+  if (!menu.classList.contains("show")) return;
+  var items = menu.querySelectorAll(".cmd-item");
+  var active = menu.querySelector(".active");
+  var idx = -1;
+  if (active) idx = Array.from(items).indexOf(active);
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    if (active) active.classList.remove("active");
+    idx = Math.min(idx + 1, items.length - 1);
+    items[idx].classList.add("active");
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    if (active) active.classList.remove("active");
+    idx = Math.max(idx - 1, 0);
+    items[idx].classList.add("active");
+  } else if (e.key === "Enter" || e.key === "Tab") {
+    if (active) {
+      e.preventDefault();
+      document.getElementById("input").value = active.getAttribute("data-cmd") + " ";
+      menu.classList.remove("show");
+      document.getElementById("input").focus();
+    }
+  } else if (e.key === "Escape") {
+    menu.classList.remove("show");
+  }
+});
+
+document.addEventListener("click", function(e) {
+  if (!e.target.closest(".input-area")) {
+    document.getElementById("cmdMenu").classList.remove("show");
+  }
+});
+
 document.addEventListener('DOMContentLoaded', function(){
   document.getElementById('btnNew').addEventListener('click', newSession);
   document.getElementById('btnSend').addEventListener('click', sendStream);
   document.getElementById('input').addEventListener('keydown', function(e){
     if (e.key === 'Enter') sendStream();
+  });
+  
+  // Toolbar event delegation
+  document.getElementById('messages').addEventListener('click', function(e) {
+    var btn = e.target.closest('.tb-copy, .tb-regen');
+    if (!btn) return;
+    if (btn.classList.contains('tb-copy')) {
+      var msg = btn.closest('.msg-wrapper').querySelector('.msg');
+      var text = msg.textContent || msg.innerText;
+      navigator.clipboard.writeText(text).catch(function(){});
+      btn.textContent = 'OK';
+      setTimeout(function(){btn.textContent = 'C'}, 1500);
+    } else if (btn.classList.contains('tb-regen')) {
+      var msgs = document.querySelectorAll('.msg.user');
+      if (msgs.length > 0) {
+        document.getElementById('input').value = msgs[msgs.length - 1].textContent;
+        sendStream();
+      }
+    }
   });
   startApprovalPolling();
   load();
