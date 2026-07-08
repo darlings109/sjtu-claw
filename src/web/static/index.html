@@ -13,9 +13,17 @@ body{font-family:-apple-system,sans-serif;display:flex;height:100vh;background:#
 .si{padding:12px 14px;border-radius:10px;cursor:pointer;margin-bottom:4px;border:1px solid transparent;transition:all .15s}
 .si:hover{background:#f0f0f0;border-color:#ddd}
 .si.active{background:#e3f2fd;border-color:#90caf9;font-weight:600}
-.si .title{font-size:14px;color:#1a1a1a}
+.si .title{font-size:14px;color:#1a1a1a;padding-right:55px}
 .si .meta{font-size:11px;color:#999;margin-top:3px}
 .si .badge{background:#e3f2fd;color:#1976d2;border-radius:10px;padding:1px 8px;font-size:11px}
+.si{position:relative}
+.si .btn-group{position:absolute;top:8px;right:8px;display:none;gap:2px}
+.si:hover .btn-group{display:flex}
+.si .btn-group button{width:24px;height:24px;border:none;border-radius:6px;cursor:pointer;font-size:12px;line-height:24px;text-align:center;padding:0}
+.si .btn-rename{background:#e8f0fe;color:#1976d2}
+.si .btn-rename:hover{background:#bbdefb}
+.si .btn-delete{background:#fce4ec;color:#c62828}
+.si .btn-delete:hover{background:#f8bbd0}
 .btn-new{display:block;margin:8px;padding:10px;background:#1976d2;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:500;text-align:center}
 .btn-new:hover{background:#1565c0}
 .main{flex:1;display:flex;flex-direction:column;background:#fff}
@@ -66,6 +74,10 @@ function load() {
       h += '<div class="si' + a + '" data-id="' + s.session_id + '">' +
         '<div class="title">' + esc(s.title) + '</div>' +
         '<div class="meta">' + t + ' <span class="badge">' + s.message_count + ' msgs</span></div>' +
+        '<div class="btn-group">' +
+        '<button class="btn-rename">✎</button>' +
+        '<button class="btn-delete">✖</button>' +
+        '</div>' +
         '</div>';
     }
     var el = document.getElementById('session-list');
@@ -73,9 +85,27 @@ function load() {
     // click on each session
     var items = el.querySelectorAll('.si');
     for (var j = 0; j < items.length; j++) {
-      items[j].addEventListener('click', function() {
+      var si = items[j];
+      si.addEventListener('click', function(e) {
+        if (e.target.closest('.btn-group')) return;
         switchTo(this.getAttribute('data-id'));
       });
+      // Rename button
+      var rBtn = si.querySelector('.btn-rename');
+      if (rBtn) {
+        rBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          doRename(this.closest('.si').getAttribute('data-id'));
+        });
+      }
+      // Delete button
+      var dBtn = si.querySelector('.btn-delete');
+      if (dBtn) {
+        dBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          doDelete(this.closest('.si').getAttribute('data-id'));
+        });
+      }
     }
   }).catch(function(){});
 }
@@ -102,6 +132,29 @@ function switchTo(id) {
 function newSession() {
   api('/api/sessions', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'}).then(function(s){
     switchTo(s.session_id);
+  }).catch(function(){});
+}
+
+function doRename(id) {
+  var name = prompt('Rename ' + id + ':');
+  if (name && name.trim()) {
+    api('/api/sessions/' + id + '/rename', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({title:name.trim()})}).then(function(){
+      load();
+      if (cur === id) switchTo(id);
+    }).catch(function(){});
+  }
+}
+
+function doDelete(id) {
+  if (!confirm('Delete session ' + id + '?')) return;
+  api('/api/sessions/' + id, {method:'DELETE'}).then(function(){
+    if (cur === id) {
+      cur = null;
+      document.getElementById('messages').innerHTML = '<div class="placeholder">Select a session</div>';
+      document.getElementById('input').disabled = true;
+      document.getElementById('btnSend').disabled = true;
+    }
+    load();
   }).catch(function(){});
 }
 
