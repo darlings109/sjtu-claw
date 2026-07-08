@@ -87,6 +87,68 @@ def process_message(
     return final_reply
 
 
+def _run_agent_stream(config: LLMConfig, session: Session, user_content: str):
+    """以流式事件运行 agent loop（供 SSE endpoint 使用）
+
+    Yields:
+        events: {type, content/name/arguments...}
+    """
+    from src.context_builder import build_context
+    from src.llm_client import chat_completion_stream
+    from src.session_store import append_message, save_session
+    from src.tool_registry import get_registry
+
+    # Add user message
+    append_message(session.session_id, "user", user_content)
+
+    max_tool_rounds = 10
+    tool_rounds = 0
+
+    while tool_rounds < max_tool_rounds:
+        tool_rounds += 1
+
+        # Build context
+        messages = build_context(session)
+        tools_defs = get_registry().get_definitions()
+
+        # Stream LLM response
+        collected_text = ""
+        tool_calls = []
+
+        for event in chat_completion_stream(config, messages, tools=tools_defs if tools_defs else None):
+            if event["type"] == "text":
+                collected_text += event["content"]
+                yield {"type": "token", "content": event["content"]}
+            elif event["type"] == "tool_call":
+                tool_calls.append(event)
+                yield {"type": "tool_call", "name": event["name"], "arguments": event["arguments"]}
+            elif event["type"] == "done":
+                collected_text = event.get("content", collected_text)
+            elif event["type"] == "error":
+                yield event
+                return
+
+        # Save assistant reply
+        if collected_text:
+            append_message(session.session_id, "assistant", collected_text)
+            yield {"type": "text_done", "content": collected_text}
+
+        # Execute tool calls
+        if not tool_calls:
+            break
+
+        for tc in tool_calls:
+            name = tc["name"]
+            args = tc["arguments"]
+            result = get_registry().execute(name, args)
+            append_message(session.session_id, "tool", result)
+            yield {"type": "tool_result", "name": name, "result": result[:500]}
+
+        tool_calls = []
+
+    yield {"type": "done"}
+
+
 def process_and_compact(
     config: LLMConfig,
     session: Session,

@@ -24,7 +24,6 @@ _config = None
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 ATTACHMENTS_DIR = Path("data") / "attachments"
 
-
 class GatewayHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
@@ -260,6 +259,41 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             (attach_dir / filename).write_bytes(body)
             return self._json({"filename": filename, "size": len(body), "path": f"{sid}/{filename}"}, 201)
 
+        # POST /api/sessions/<id>/messages/stream - SSE streaming
+        if '/messages/stream' in path:
+            sid = path.split('/api/sessions/')[1].split('/')[0]
+            session = load_session(sid)
+            if session is None:
+                return self._json({"error": "session not found"}, 404)
+            try:
+                body = json.loads(self.rfile.read(int(self.headers.get('Content-Length', 0))))
+            except Exception:
+                return self._json({"error": "invalid JSON"}, 400)
+            content_text = body.get('content', '').strip()
+            if not content_text:
+                return self._json({"error": "content required"}, 400)
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/event-stream')
+            self.send_header('Cache-Control', 'no-cache')
+            self.send_header('Connection', 'keep-alive')
+            self.end_headers()
+
+            from src.agent import _run_agent_stream
+            try:
+                for event in _run_agent_stream(_config, session, content_text):
+                    line = 'data: ' + json.dumps(event, ensure_ascii=False) + '\n\n'
+
+                    self.wfile.write(line.encode('utf-8'))
+                    self.wfile.flush()
+            except Exception as e:
+                err = json.dumps({"type": "error", "content": str(e)}, ensure_ascii=False)
+                self.wfile.write(('data: ' + err + '\r\n\r\n').encode('utf-8'))
+
+
+                self.wfile.flush()
+            return
+
         # POST /api/sessions/<id>/messages
         if '/messages' in path:
             sid = path.split('/api/sessions/')[1].split('/')[0]
@@ -334,7 +368,6 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             return str(target)
         return str(STATIC_DIR / 'index.html')
 
-
 _scheduler = None
 
 def main():
@@ -359,7 +392,6 @@ def main():
         server.serve_forever()
     except KeyboardInterrupt:
         print("\nStopping gateway...")
-
 
 if __name__ == '__main__':
     main()

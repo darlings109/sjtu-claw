@@ -39,6 +39,102 @@ def build_payload(
     return payload
 
 
+def chat_completion_stream(
+    config: LLMConfig,
+    messages: List[Dict[str, Any]],
+    tools: Optional[List[Dict[str, Any]]] = None,
+    **kwargs: Any,
+):
+    """流式调用 Chat Completions API，逐 chunk 产出内容
+
+    Yields:
+        events: dict with keys:
+          - "type": "text" | "tool_call" | "done" | "error"
+          - "content": text content for "text"
+          - "name"/"arguments"/"id" for "tool_call"
+    """
+    url = f"{config.base_url}/chat/completions"
+    headers = build_headers(config.api_key)
+    payload = build_payload(config.model, messages, tools=tools, stream=True, **kwargs)
+
+    try:
+        response = requests.post(
+            url, headers=headers, json=payload,
+            timeout=config.timeout, verify=False, stream=True,
+        )
+    except requests.exceptions.Timeout:
+        yield {"type": "error", "content": f"Request timeout ({config.timeout}s)"}
+        return
+    except requests.exceptions.ConnectionError as e:
+        yield {"type": "error", "content": f"Connection error: {e}"}
+        return
+
+    if response.status_code != 200:
+        yield {"type": "error", "content": f"API error ({response.status_code}): {response.text[:200]}"}
+        return
+
+    buffer = ""
+    current_tool_calls = {}
+    final_text = ""
+
+    for chunk in response.iter_lines(decode_unicode=True):
+        if not chunk:
+            continue
+        if chunk.startswith("data: "):
+            data_str = chunk[6:]
+            if data_str == "[DONE]":
+                break
+            try:
+                data = json.loads(data_str)
+            except json.JSONDecodeError:
+                continue
+
+            choices = data.get("choices", [])
+            if not choices:
+                continue
+            delta = choices[0].get("delta", {})
+
+            # Text content
+            if "content" in delta and delta["content"]:
+                final_text += delta["content"]
+                yield {"type": "text", "content": delta["content"]}
+
+            # Tool calls
+            if "tool_calls" in delta:
+                for tc in delta["tool_calls"]:
+                    idx = tc.get("index", 0)
+                    if idx not in current_tool_calls:
+                        current_tool_calls[idx] = {
+                            "id": tc.get("id", ""),
+                            "name": tc.get("function", {}).get("name", ""),
+                            "arguments": "",
+                        }
+                    if "function" in tc:
+                        fn = tc["function"]
+                        if "name" in fn:
+                            current_tool_calls[idx]["name"] += fn["name"]
+                        if "arguments" in fn:
+                            current_tool_calls[idx]["arguments"] += fn["arguments"]
+
+            finish = choices[0].get("finish_reason")
+            if finish == "tool_calls":
+                for idx in sorted(current_tool_calls.keys()):
+                    tc = current_tool_calls[idx]
+                    try:
+                        args = json.loads(tc["arguments"])
+                    except json.JSONDecodeError:
+                        args = {}
+                    yield {
+                        "type": "tool_call",
+                        "id": tc["id"],
+                        "name": tc["name"],
+                        "arguments": args,
+                    }
+                current_tool_calls = {}
+
+    yield {"type": "done", "content": final_text}
+
+
 def chat_completion(
     config: LLMConfig,
     messages: List[Dict[str, Any]],
