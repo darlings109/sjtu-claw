@@ -37,6 +37,15 @@ body{font-family:-apple-system,sans-serif;display:flex;height:100vh;background:#
 .input-area input:focus{border-color:#1976d2}
 .input-area button{padding:12px 24px;background:#1976d2;color:#fff;border:none;border-radius:24px;cursor:pointer;font-size:14px;font-weight:500}
 .input-area button:disabled{background:#ccc;cursor:not-allowed}
+.approval-card{background:#fff8e1;border:1px solid #ffe082;border-radius:12px;padding:14px 18px;margin:12px 0;align-self:center;min-width:300px;max-width:90%}
+.approval-card h4{color:#f57f17;font-size:14px;margin-bottom:8px}
+.approval-card .detail{font-size:13px;color:#555;margin-bottom:10px}
+.approval-card .btns{display:flex;gap:8px;justify-content:center}
+.approval-card .btns button{padding:8px 20px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500}
+.approval-card .btn-ok{background:#43a047;color:#fff}
+.approval-card .btn-ok:hover{background:#388e3c}
+.approval-card .btn-no{background:#e53935;color:#fff}
+.approval-card .btn-no:hover{background:#c62828}
 </style>
 </head>
 <body>
@@ -176,6 +185,53 @@ function send() {
   });
 }
 
+
+// Approval polling
+var approvalTimer = null;
+
+function startApprovalPolling() {
+  if (approvalTimer) clearInterval(approvalTimer);
+  approvalTimer = setInterval(function() {
+    fetch('/api/approvals').then(function(r){return r.json()}).then(function(data){
+      if (data.length > 0) {
+        var el = document.getElementById('messages');
+        for (var i = 0; i < data.length; i++) {
+          var a = data[i];
+          // Check if this approval is already shown
+          if (document.getElementById('app-card-' + a.approval_id)) continue;
+          var card = document.createElement('div');
+          card.id = 'app-card-' + a.approval_id;
+          card.className = 'approval-card';
+          card.innerHTML = '<h4>✅ Approval Required</h4>' +
+            '<div class="detail"><b>Tool:</b> ' + esc(a.tool) + '<br>' +
+            '<b>Args:</b> ' + esc(JSON.stringify(a.args)) + '</div>' +
+            '<div class="btns">' +
+            '<button class="btn-ok" onclick="doApprove('' + a.approval_id + '')">✅ Approve</button>' +
+            '<button class="btn-no" onclick="doReject('' + a.approval_id + '')">❌ Reject</button>' +
+            '</div>';
+          el.appendChild(card);
+          el.scrollTop = el.scrollHeight;
+        }
+      }
+    }).catch(function(){});
+  }, 2000);
+}
+
+function doApprove(id) {
+  fetch('/api/approvals/' + id + '/approve', {method:'POST'}).then(function(){
+    var card = document.getElementById('app-card-' + id);
+    if (card) card.innerHTML = '<div style="color:#43a047;font-weight:500;text-align:center">✅ Approved</div>';
+    // The next user message will trigger the actual tool execution
+  }).catch(function(){});
+}
+
+function doReject(id) {
+  fetch('/api/approvals/' + id + '/reject', {method:'POST'}).then(function(){
+    var card = document.getElementById('app-card-' + id);
+    if (card) card.innerHTML = '<div style="color:#e53935;font-weight:500;text-align:center">❌ Rejected</div>';
+  }).catch(function(){});
+}
+
 function esc(s) {
   if (!s) return '';
   var d = document.createElement('div');
@@ -189,6 +245,7 @@ document.addEventListener('DOMContentLoaded', function(){
   document.getElementById('input').addEventListener('keydown', function(e){
     if (e.key === 'Enter') send();
   });
+  startApprovalPolling();
   load();
 });
 </script>

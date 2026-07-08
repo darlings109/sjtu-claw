@@ -31,6 +31,12 @@ class GatewayHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
 
+        # List pending approvals
+        if path == '/api/approvals':
+            from src.workspace import list_approvals
+            approvals = list_approvals()
+            return self._json(approvals)
+
         if path == '/api/health':
             return self._json({"status": "ok"})
 
@@ -190,6 +196,20 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                 return self._json({"reply": reply, "session_id": session.session_id})
             except Exception as e:
                 return self._json({"reply": f"[API Error] {str(e)[:200]}", "session_id": session.session_id})
+
+        # POST /api/approvals/<id>/approve or /reject
+        if path.startswith('/api/approvals/'):
+            parts = path.split('/api/approvals/')[1].split('/')
+            if len(parts) >= 2:
+                aid = parts[0]
+                action = parts[1]
+                from src.workspace import approve as do_approve, reject as do_reject
+                if action == 'approve':
+                    ok = do_approve(aid)
+                    return self._json({"status": "approved" if ok else "not found"})
+                elif action == 'reject':
+                    ok = do_reject(aid)
+                    return self._json({"status": "rejected" if ok else "not found"})
 
         return self._json({"error": "not found"}, 404)
 
