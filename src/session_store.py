@@ -5,6 +5,7 @@
 """
 
 import json
+import shutil
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -55,6 +56,44 @@ def append_message(session_id: str, role: str, content: str) -> bool:
             print(f"[错误] 保存 session {session_id} 失败：{e}", file=__import__("sys").stderr)
             return False
         return True
+
+
+
+BACKUP_DIR = SESSIONS_DIR / ".backups"
+MAX_BACKUP_COPIES = 3
+MAX_BACKUP_COPIES = 3
+
+def _backup_session(session_id: str) -> None:
+    """创建 session 备份"""
+    src = _session_path(session_id)
+    if not src.exists():
+        return
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    try:
+        import shutil
+        shutil.copy2(src, BACKUP_DIR / f"{session_id}_{ts}.json")
+        backups = sorted(BACKUP_DIR.glob(f"{session_id}_*.json"))
+        for old_file in backups[:-MAX_BACKUP_COPIES]:
+            old_file.unlink()
+    except OSError:
+        pass
+
+
+def recover_session(session_id: str) -> Optional[Session]:
+    """从备份恢复损坏的 session"""
+    backups = sorted(BACKUP_DIR.glob(f"{session_id}_*.json"))
+    if not backups:
+        return None
+    for backup in reversed(backups):
+        try:
+            data = json.loads(backup.read_text())
+            print(f"[恢复] session {session_id} 从 {backup.name} 恢复", file=__import__("sys").stderr)
+            return Session.from_dict(data)
+        except (json.JSONDecodeError, KeyError):
+            continue
+    print(f"[错误] session {session_id} 所有备份均损坏", file=__import__("sys").stderr)
+    return None
 
 
 class Session:
@@ -130,6 +169,9 @@ def load_session(session_id: str) -> Optional[Session]:
             return Session.from_dict(data)
         except (json.JSONDecodeError, KeyError, OSError) as e:
             print(f"[错误] 加载 session {session_id} 失败：{e}", file=__import__("sys").stderr)
+            recovered = recover_session(session_id)
+            if recovered:
+                return recovered
             return None
 
 
@@ -140,6 +182,7 @@ def save_session(session: Session) -> None:
     path = _session_path(session.session_id)
     lock = _get_sess_lock(session.session_id)
     with lock:
+        _backup_session(session.session_id)
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(session.to_dict(), f, ensure_ascii=False, indent=2)
