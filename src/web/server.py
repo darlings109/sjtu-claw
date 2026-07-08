@@ -78,6 +78,22 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                 return self._json({"error": str(e)}, 500)
             return
 
+        # Get individual attachment
+        if path.startswith('/api/sessions/') and '/attachments/' in path:
+            parts = path.split('/api/sessions/')[1].split('/')
+            sid = parts[0]
+            filename = parts[2]
+            file_path = ATTACHMENTS_DIR / sid / filename
+            if not file_path.exists():
+                return self._json({"error": "not found"}, 404)
+            data = file_path.read_bytes()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/octet-stream')
+            self.send_header('Content-Length', str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
         # List session attachments
         if path.startswith('/api/sessions/') and path.endswith('/attachments'):
             sid = path.split('/api/sessions/')[1].split('/')[0]
@@ -139,7 +155,8 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             return self._json({"error": "title required"}, 400)
 
         # POST /api/sessions/<id>/attachments
-        if '/attachments' in path:
+        if path.endswith('/attachments'):
+            # This route should be before /messages to avoid conflict
             sid = path.split('/api/sessions/')[1].split('/')[0]
             content_length = int(self.headers.get('Content-Length', 0))
             if content_length == 0:
