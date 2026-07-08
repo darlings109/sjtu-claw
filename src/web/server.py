@@ -37,6 +37,23 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             approvals = list_approvals()
             return self._json(approvals)
 
+        if path == '/api/approvals':
+            from src.workspace import list_approvals
+            return self._json(list_approvals())
+
+        if path == '/api/skills':
+            from src.skill_registry import scan_skills
+            return self._json(scan_skills())
+
+        if path == '/api/workspace':
+            from src.workspace import get_workspace
+            ws = get_workspace()
+            return self._json({"workspace": str(ws) if ws else None})
+
+        if path == '/api/tasks':
+            from src.scheduler import list_tasks
+            return self._json(list_tasks())
+
         if path == '/api/health':
             return self._json({"status": "ok"})
 
@@ -112,6 +129,37 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                     items.append({"filename": f.name, "size": f.stat().st_size})
             return self._json(items)
 
+        # List session attachments
+        if path.startswith('/api/sessions/') and path.endswith('/attachments'):
+            sid = path.split('/api/sessions/')[1].split('/')[0]
+            attach_dir = ATTACHMENTS_DIR / sid
+            if not attach_dir.exists():
+                return self._json([])
+            items = []
+            for f in attach_dir.iterdir():
+                if f.is_file():
+                    items.append({"filename": f.name, "size": f.stat().st_size})
+            return self._json(items)
+
+        # Download API
+        if path.startswith('/api/downloads/'):
+            dl_id = path.split('/api/downloads/')[1].split('/')[0]
+            from src.workspace import get_download_path
+            file_path = get_download_path(dl_id)
+            if file_path is None:
+                return self._json({"error": "download not found"}, 404)
+            try:
+                data = file_path.read_bytes()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/octet-stream')
+                self.send_header('Content-Disposition', 'attachment; filename="' + file_path.name + '"')
+                self.send_header('Content-Length', str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+            return
+
         # Static files
         if path == '/':
             path = '/index.html'
@@ -120,6 +168,12 @@ class GatewayHandler(SimpleHTTPRequestHandler):
     def do_DELETE(self):
         parsed = urlparse(self.path)
         path = parsed.path
+
+        # DELETE /api/workspace
+        if path == '/api/workspace':
+            from src.workspace import clear_workspace
+            clear_workspace()
+            return self._json({"status": "cleared"})
 
         # DELETE /api/sessions/<id>
         if path.startswith('/api/sessions/'):
@@ -142,6 +196,37 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                 "title": session.title,
                 "message_count": 0,
             }, 201)
+
+        # POST /api/workspace
+        if path == '/api/workspace':
+            body = json.loads(self.rfile.read(int(self.headers.get('Content-Length', 0))))
+            from src.workspace import set_workspace
+            result = set_workspace(body.get('path', ''))
+            return self._json({"result": result})
+
+        # POST /api/tasks
+        if path == '/api/tasks':
+            body = json.loads(self.rfile.read(int(self.headers.get('Content-Length', 0))))
+            from src.scheduler import create_task
+            task = create_task(body.get('content',''), body.get('trigger_time',''), body.get('session_id',''), body.get('repeat_rule',''))
+            if task:
+                return self._json(task, 201)
+            return self._json({"error": "invalid task params"}, 400)
+
+        # POST /api/sessions/<id>/attachments
+        if path.endswith('/attachments'):
+            from src.tool_registry import get_registry as _
+            sid = path.split('/api/sessions/')[1].split('/')[0]
+            content_length = int(self.headers.get('Content-Length', 0))
+            if content_length == 0:
+                return self._json({"error": "no data"}, 400)
+            body = self.rfile.read(content_length)
+            import uuid
+            attach_dir = ATTACHMENTS_DIR / sid
+            attach_dir.mkdir(parents=True, exist_ok=True)
+            filename = uuid.uuid4().hex
+            (attach_dir / filename).write_bytes(body)
+            return self._json({"filename": filename, "size": len(body), "path": sid + "/" + filename}, 201)
 
         # POST /api/sessions/<id>/rename
         if '/rename' in path:
@@ -210,6 +295,18 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                 elif action == 'reject':
                     ok = do_reject(aid)
                     return self._json({"status": "rejected" if ok else "not found"})
+
+        # POST /api/approvals/<id>/approve or /reject
+        if path.startswith('/api/approvals/'):
+            parts = path.split('/api/approvals/')[1].split('/')
+            if len(parts) >= 2:
+                aid = parts[0]
+                action = parts[1]
+                from src.workspace import approve as do_approve, reject as do_reject
+                if action == 'approve':
+                    return self._json({"status": "approved" if do_approve(aid) else "not found"})
+                elif action == 'reject':
+                    return self._json({"status": "rejected" if do_reject(aid) else "not found"})
 
         return self._json({"error": "not found"}, 404)
 
