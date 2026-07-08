@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat > Flask 2>&1)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -c \"from src.main import handle_task_command; print\\('OK'\\)\")",
+      "Bash(sed 'n 1877,1990p' TASK.md)",
+      "Bash(awk 'NR>=1877 && NR<=1990' TASK.md)",
+      "Bash(python3 -c \"from src.tool_registry import get_registry; r = get_registry\\(\\); print\\('Tools:', r.tool_names\\)\")",
+      "Bash(mkdir -p skills/course-report assets references)"
+    ],
+    "additionalDirectories": [
+      "\\\\wsl.localhost\\Ubuntu\\home\\darling\\SJTU-claw",
+      "\\\\wsl.localhost\\Ubuntu\\home\\darling\\SJTU-claw\\skills"
+    ]
+  }
+}
