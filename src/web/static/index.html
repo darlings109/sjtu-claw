@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SJTUClaw</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.0/github-markdown.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/marked.min.js"><\/script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/marked/marked.min.js" onerror="window.markedFailed=true"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,sans-serif;display:flex;height:100vh;background:#f5f5f5;--bg:#f5f5f5;--surface:#fff;--border:#e0e0e0;--text:#333;--text2:#999;--accent:#1976d2;--accent-hover:#1565c0;--msg-user:#1976d2;--msg-assistant:#fff;--hover-bg:#f0f0f0;--active-bg:#e3f2fd;--active-border:#90caf9;--danger:#c62828;--danger-bg:#fce4ec}
@@ -361,7 +361,7 @@ function renderMsg(role, content) {
 }
 function esc(s) {
   if (!s) return '';
-  if (typeof marked !== 'undefined') {
+  if (typeof marked !== 'undefined' && !window.markedFailed) {
     var html = marked.parse(s);
     // Only use markdown if it contains formatting
     if (html !== '<p>' + s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</p>
