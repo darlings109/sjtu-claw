@@ -153,7 +153,7 @@ def compact_history(
 
     prompt = build_compact_prompt(existing_summary, old)
     compact_msgs = [{"role": "user", "content": prompt}]
-    summary, _ = chat_completion(config, compact_msgs)
+    summary, _, _ = chat_completion(config, compact_msgs)
     summary = summary.strip()
 
     if not summary:
@@ -188,7 +188,7 @@ def reactive_compact(
 
     prompt = build_compact_prompt(existing_summary, old)
     compact_msgs = [{"role": "user", "content": prompt}]
-    summary, _ = chat_completion(config, compact_msgs)
+    summary, _, _ = chat_completion(config, compact_msgs)
     summary = summary.strip()
 
     if not summary:

@@ -154,7 +154,7 @@ def extract_memories(config: LLMConfig, messages: List[Dict]) -> int:
 
     try:
         from src.llm_client import chat_completion
-        result, _ = chat_completion(config, [{"role": "user", "content": prompt}])
+        result, _, _ = chat_completion(config, [{"role": "user", "content": prompt}])
         result = result.strip()
     except Exception:
         return 0
@@ -213,7 +213,7 @@ def consolidate_memories() -> int:
         from src.llm_client import chat_completion
         from src.config import load_config
         cfg = load_config()
-        result, _ = chat_completion(cfg, [{"role": "user", "content": prompt}])
+        result, _, _ = chat_completion(cfg, [{"role": "user", "content": prompt}])
         result = result.strip()
     except Exception:
         return 0
