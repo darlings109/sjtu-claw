@@ -1,9 +1,11 @@
 """Session Store — 会话管理与持久化
 
 每个 session 保存为 data/sessions/<sessionId>.json。
+支持并发读写的 session 级线程锁。
 """
 
 import json
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -12,6 +14,16 @@ from src.config import ROOT_DIR
 
 
 SESSIONS_DIR = ROOT_DIR / "data" / "sessions"
+_sess_locks: Dict[str, threading.RLock] = {}
+_sess_locks_lock = threading.Lock()
+
+
+def _get_sess_lock(session_id: str) -> threading.Lock:
+    """获取 session 线程锁"""
+    with _sess_locks_lock:
+        if session_id not in _sess_locks:
+            _sess_locks[session_id] = threading.RLock()
+        return _sess_locks[session_id]
 
 
 def _now() -> str:
@@ -24,6 +36,25 @@ def _ensure_dir() -> None:
 
 def _session_path(session_id: str) -> Path:
     return SESSIONS_DIR / f"{session_id}.json"
+
+
+def append_message(session_id: str, role: str, content: str) -> bool:
+    """原子操作：追加消息到 session（线程安全）"""
+    lock = _get_sess_lock(session_id)
+    with lock:
+        session = load_session(session_id)
+        if session is None:
+            return False
+        session.messages.append({"role": role, "content": content})
+        session.updated_at = _now()
+        path = _session_path(session_id)
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(session.to_dict(), f, ensure_ascii=False, indent=2)
+        except OSError as e:
+            print(f"[错误] 保存 session {session_id} 失败：{e}", file=__import__("sys").stderr)
+            return False
+        return True
 
 
 class Session:
@@ -72,7 +103,7 @@ class Session:
 
 
 def list_sessions() -> List[Session]:
-    """列出所有已保存的 session，按 updated_at 降序"""
+    """列出所有已保存的 session"""
     _ensure_dir()
     sessions = []
     for f in sorted(SESSIONS_DIR.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
@@ -87,29 +118,33 @@ def list_sessions() -> List[Session]:
 
 
 def load_session(session_id: str) -> Optional[Session]:
-    """加载指定 session"""
+    """加载指定 session（线程安全）"""
     path = _session_path(session_id)
     if not path.exists():
         return None
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return Session.from_dict(data)
-    except (json.JSONDecodeError, KeyError, OSError) as e:
-        print(f"[错误] 加载 session {session_id} 失败：{e}", file=__import__("sys").stderr)
-        return None
+    lock = _get_sess_lock(session_id)
+    with lock:
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return Session.from_dict(data)
+        except (json.JSONDecodeError, KeyError, OSError) as e:
+            print(f"[错误] 加载 session {session_id} 失败：{e}", file=__import__("sys").stderr)
+            return None
 
 
 def save_session(session: Session) -> None:
-    """保存 session 到本地文件"""
+    """保存 session 到本地文件（线程安全）"""
     _ensure_dir()
     session.updated_at = _now()
     path = _session_path(session.session_id)
-    try:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(session.to_dict(), f, ensure_ascii=False, indent=2)
-    except OSError as e:
-        print(f"[错误] 保存 session {session.session_id} 失败：{e}", file=__import__("sys").stderr)
+    lock = _get_sess_lock(session.session_id)
+    with lock:
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(session.to_dict(), f, ensure_ascii=False, indent=2)
+        except OSError as e:
+            print(f"[错误] 保存 session {session.session_id} 失败：{e}", file=__import__("sys").stderr)
 
 
 def delete_session(session_id: str) -> bool:
@@ -117,16 +152,18 @@ def delete_session(session_id: str) -> bool:
     path = _session_path(session_id)
     if not path.exists():
         return False
-    try:
-        path.unlink()
-        return True
-    except OSError as e:
-        print(f"[错误] 删除 session {session_id} 失败：{e}", file=__import__("sys").stderr)
-        return False
+    lock = _get_sess_lock(session_id)
+    with lock:
+        try:
+            path.unlink()
+            return True
+        except OSError as e:
+            print(f"[错误] 删除 session {session_id} 失败：{e}", file=__import__("sys").stderr)
+            return False
 
 
 def create_session(title: str = "") -> Session:
-    """创建新 session，自动生成 session_id"""
+    """创建新 session"""
     existing = list_sessions()
     ids = []
     for s in existing:
