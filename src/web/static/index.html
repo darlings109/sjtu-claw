@@ -24,8 +24,14 @@ body{background:#1a1d27;--bg:#1a1d27;--surface:#222535;--border:#2e3147;--text:#
 .si .btn-group button{width:24px;height:24px;border:none;border-radius:6px;cursor:pointer;font-size:12px;line-height:24px;text-align:center;padding:0}
 .si .btn-rename{background:#e8f0fe;color:var(--accent)}.si .btn-rename:hover{background:#bbdefb}
 .si .btn-delete{background:var(--danger-bg);color:var(--danger)}.si .btn-delete:hover{background:#f8bbd0}
-.btn-new{display:block;margin:8px;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:500;text-align:center}
+.btn-new{display:block;margin:8px 8px 4px;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:500;text-align:center}
 .btn-new:hover{background:var(--accent-hover)}
+.btn-upload{display:block;margin:4px 8px 8px;padding:8px;background:var(--bg);color:var(--text);border:1px dashed var(--border);border-radius:10px;cursor:pointer;font-size:12px;text-align:center;position:relative}
+.btn-upload:hover{background:var(--hover-bg);border-color:var(--accent)}
+.btn-upload input{position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.attach-list{padding:4px 12px 8px;font-size:11px;color:var(--text2);border-bottom:1px solid var(--border);display:none}
+.attach-list .item{padding:2px 0;display:flex;justify-content:space-between}
+.attach-list .item .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px}
 .main{flex:1;display:flex;flex-direction:column;background:var(--surface)}
 #messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
 .msg{max-width:75%;padding:12px 18px;border-radius:14px;font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
@@ -45,7 +51,7 @@ body{background:#1a1d27;--bg:#1a1d27;--surface:#222535;--border:#2e3147;--text:#
 .approval-card .btns button{padding:8px 20px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500}
 .approval-card .btn-ok{background:#43a047;color:#fff}.approval-card .btn-ok:hover{background:#388e3c}
 .approval-card .btn-no{background:#e53935;color:#fff}.approval-card .btn-no:hover{background:#c62828}
-.tool-card{align-self:flex-start;background:#f5f7fa;border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin:4px 0;font-size:13px;max-width:85%;min-width:200px}
+.msg.tool{align-self:flex-start;background:#fff8e1;border:1px solid #ffe082;color:#f57f17;font-size:12px;font-family:monospace;border-radius:8px}
 .tool-card .tool-name{font-weight:600;color:var(--accent)}
 .tool-card .tool-args{font-family:monospace;color:#666;margin-top:4px;white-space:pre-wrap;font-size:12px}
 .tool-card .tool-result{background:#e8f5e9;color:#2e7d32}.tool-card .tool-error{background:#ffebee;color:#c62828}
@@ -65,6 +71,8 @@ body{background:#1a1d27;--bg:#1a1d27;--surface:#222535;--border:#2e3147;--text:#
 <h2>SJTUClaw</h2>
 <button class=btn-new id=btnNew>+ New Session</button>
 <div id=session-list></div>
+<label class="btn-upload" id="btnUpload">📎 Attach File<input type="file" id="fileInput"></label>
+<div class="attach-list" id="attachList"></div>
 </div>
 <div class=main>
 <div class="notification-area" id="notification-area"><div id="notifications"></div></div>
@@ -145,6 +153,7 @@ function switchTo(id) {
     }
     el.innerHTML = h || '<div class="placeholder">No messages yet</div>';
     el.scrollTop = el.scrollHeight;
+    loadAttachments(id);
     load();
   }).catch(function(){});
 }
@@ -211,8 +220,36 @@ document.addEventListener('DOMContentLoaded', function(){
   document.getElementById('input').addEventListener('keydown', function(e){
     if (e.key === 'Enter') send();
   });
+  // File upload
+  document.getElementById('fileInput').addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (!file || !cur) return;
+    file.arrayBuffer().then(function(buf) {
+      fetch('/api/sessions/' + cur + '/attachments', {
+        method: 'POST',
+        body: buf
+      }).then(function(r){return r.json()}).then(function(d){
+        loadAttachments(cur);
+      }).catch(function(){});
+    });
+    e.target.value = '';
+  });
   load();
 });
+
+function loadAttachments(sid) {
+  if (!sid) { document.getElementById('attachList').style.display = 'none'; return; }
+  fetch('/api/sessions/' + sid + '/attachments').then(function(r){return r.json()}).then(function(items){
+    var el = document.getElementById('attachList');
+    if (!items.length) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    el.innerHTML = items.map(function(f){
+      return '<div class="item"><span class="name">' + esc(f.filename) + '</span><span>' + f.size + 'B</span></div>';
+    }).join('');
+  }).catch(function(){});
+}
+
+function switchTo(id) {
 </script>
 </body>
 </html>
