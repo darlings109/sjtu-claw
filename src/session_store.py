@@ -59,43 +59,6 @@ def append_message(session_id: str, role: str, content: str) -> bool:
 
 
 
-BACKUP_DIR = SESSIONS_DIR / ".backups"
-MAX_BACKUP_COPIES = 3
-MAX_BACKUP_COPIES = 3
-
-def _backup_session(session_id: str) -> None:
-    """创建 session 备份"""
-    src = _session_path(session_id)
-    if not src.exists():
-        return
-    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    try:
-        import shutil
-        shutil.copy2(src, BACKUP_DIR / f"{session_id}_{ts}.json")
-        backups = sorted(BACKUP_DIR.glob(f"{session_id}_*.json"))
-        for old_file in backups[:-MAX_BACKUP_COPIES]:
-            old_file.unlink()
-    except OSError:
-        pass
-
-
-def recover_session(session_id: str) -> Optional[Session]:
-    """从备份恢复损坏的 session"""
-    backups = sorted(BACKUP_DIR.glob(f"{session_id}_*.json"))
-    if not backups:
-        return None
-    for backup in reversed(backups):
-        try:
-            data = json.loads(backup.read_text())
-            print(f"[恢复] session {session_id} 从 {backup.name} 恢复", file=__import__("sys").stderr)
-            return Session.from_dict(data)
-        except (json.JSONDecodeError, KeyError):
-            continue
-    print(f"[错误] session {session_id} 所有备份均损坏", file=__import__("sys").stderr)
-    return None
-
-
 class Session:
     """单个会话的数据模型"""
 
@@ -139,6 +102,48 @@ class Session:
     @property
     def message_count(self) -> int:
         return len(self.messages)
+
+
+# ============================================================
+# Session 备份与恢复（Session 类定义之后）
+# ============================================================
+
+BACKUP_DIR = SESSIONS_DIR / ".backups"
+MAX_BACKUP_COPIES = 3
+
+def _backup_session(session_id: str) -> None:
+    """保存 session 备份，保留最近 MAX_BACKUP_COPIES 份"""
+    src = _session_path(session_id)
+    if not src.exists():
+        return
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    try:
+        import shutil
+        shutil.copy2(src, BACKUP_DIR / f"{session_id}_{ts}.json")
+        backups = sorted(BACKUP_DIR.glob(f"{session_id}_*.json"))
+        for old_file in backups[:-MAX_BACKUP_COPIES]:
+            old_file.unlink()
+    except OSError:
+        pass
+
+
+def recover_session(session_id: str) -> Optional[Session]:
+    """从备份恢复损坏的 session"""
+    if not BACKUP_DIR.exists():
+        return None
+    backups = sorted(BACKUP_DIR.glob(f"{session_id}_*.json"))
+    if not backups:
+        return None
+    for backup in reversed(backups):
+        try:
+            data = json.loads(backup.read_text())
+            print(f"[恢复] session {session_id} 从 {backup.name} 恢复", file=__import__("sys").stderr)
+            return Session.from_dict(data)
+        except (json.JSONDecodeError, KeyError):
+            continue
+    print(f"[错误] session {session_id} 所有备份均损坏", file=__import__("sys").stderr)
+    return None
 
 
 def list_sessions() -> List[Session]:

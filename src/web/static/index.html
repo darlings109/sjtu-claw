@@ -4,73 +4,60 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SJTUClaw</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.0/github-markdown.min.css">
-<script async src="https://cdnjs.cloudflare.com/ajax/libs/marked/marked.min.js" onerror="window.markedFailed=true"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,sans-serif;display:flex;height:100vh;background:#f5f5f5;--bg:#f5f5f5;--surface:#fff;--border:#e0e0e0;--text:#333;--text2:#999;--accent:#1976d2;--accent-hover:#1565c0;--msg-user:#1976d2;--msg-assistant:#fff;--hover-bg:#f0f0f0;--active-bg:#e3f2fd;--active-border:#90caf9;--danger:#c62828;--danger-bg:#fce4ec}
 @media(prefers-color-scheme:dark){
 body{background:#1a1d27;--bg:#1a1d27;--surface:#222535;--border:#2e3147;--text:#e4e6f0;--text2:#9098b8;--accent:#5c6ef0;--accent-hover:#6e7ef8;--msg-user:#5c6ef0;--msg-assistant:#1a1d27;--hover-bg:#222535;--active-bg:#1a2d5c;--active-border:#5c6ef0;--danger:#f87171;--danger-bg:#2e3147}
 }
-.sidebar{width:260px;background:#fff;border-right:1px solid #e0e0e0;display:flex;flex-direction:column;flex-shrink:0}
-.sidebar h2{padding:18px 16px;font-size:16px;color:#333;border-bottom:1px solid #eee}
+.sidebar{width:260px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.sidebar h2{padding:18px 16px;font-size:16px;color:var(--text);border-bottom:1px solid var(--border)}
 #session-list{flex:1;overflow-y:auto;padding:6px 8px}
-.si{padding:12px 14px;border-radius:10px;cursor:pointer;margin-bottom:4px;border:1px solid transparent;transition:all .15s}
-.si:hover{background:#f0f0f0;border-color:#ddd}
-.si.active{background:#e3f2fd;border-color:#90caf9;font-weight:600}
-.si .title{font-size:14px;color:#1a1a1a;padding-right:55px}
-.si .meta{font-size:11px;color:#999;margin-top:3px}
-.si .badge{background:#e3f2fd;color:#1976d2;border-radius:10px;padding:1px 8px;font-size:11px}
-.si{position:relative}
+.si{padding:12px 14px;border-radius:10px;cursor:pointer;margin-bottom:4px;border:1px solid transparent;transition:all .15s;position:relative}
+.si:hover{background:var(--hover-bg);border-color:var(--border)}
+.si.active{background:var(--active-bg);border-color:var(--active-border);font-weight:600}
+.si .title{font-size:14px;color:var(--text);padding-right:55px}
+.si .meta{font-size:11px;color:var(--text2);margin-top:3px}
+.si .badge{background:var(--active-bg);color:var(--accent);border-radius:10px;padding:1px 8px;font-size:11px}
 .si .btn-group{position:absolute;top:8px;right:8px;display:none;gap:2px}
 .si:hover .btn-group{display:flex}
 .si .btn-group button{width:24px;height:24px;border:none;border-radius:6px;cursor:pointer;font-size:12px;line-height:24px;text-align:center;padding:0}
-.si .btn-rename{background:#e8f0fe;color:#1976d2}
-.si .btn-rename:hover{background:#bbdefb}
-.si .btn-delete{background:#fce4ec;color:#c62828}
-.si .btn-delete:hover{background:#f8bbd0}
+.si .btn-rename{background:#e8f0fe;color:var(--accent)}.si .btn-rename:hover{background:#bbdefb}
+.si .btn-delete{background:var(--danger-bg);color:var(--danger)}.si .btn-delete:hover{background:#f8bbd0}
 .btn-new{display:block;margin:8px;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:500;text-align:center}
-.btn-new:hover{background:#1565c0}
-.main{flex:1;display:flex;flex-direction:column;background:#fff}
+.btn-new:hover{background:var(--accent-hover)}
+.main{flex:1;display:flex;flex-direction:column;background:var(--surface)}
 #messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
 .msg{max-width:75%;padding:12px 18px;border-radius:14px;font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
 .msg.user{align-self:flex-end;background:var(--msg-user);color:#fff;border-bottom-right-radius:4px}
 .msg.assistant{align-self:flex-start;background:var(--msg-assistant);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:4px}
-.placeholder{text-align:center;color:#bbb;margin-top:60px;font-size:14px;line-height:2}
-.input-area{display:flex;padding:16px 20px;background:#fff;border-top:1px solid #eee;gap:10px}
-.input-area input{flex:1;padding:12px 18px;border:1px solid #e0e0e0;border-radius:24px;outline:none;font-size:14px}
+.placeholder{text-align:center;color:var(--text2);margin-top:60px;font-size:14px;line-height:2}
+.input-area{display:flex;padding:16px 20px;background:var(--surface);border-top:1px solid var(--border);gap:10px;position:relative}
+.input-area input{flex:1;padding:12px 18px;border:1px solid var(--border);border-radius:24px;outline:none;font-size:14px;background:var(--bg);color:var(--text)}
 .input-area input:focus{border-color:var(--accent)}
-.input-area button{padding:12px 24px;background:#1976d2;color:#fff;border:none;border-radius:24px;cursor:pointer;font-size:14px;font-weight:500}
+.input-area button{padding:12px 24px;background:var(--accent);color:#fff;border:none;border-radius:24px;cursor:pointer;font-size:14px;font-weight:500}
 .input-area button:disabled{background:#ccc;cursor:not-allowed}
+.waiting{display:none;text-align:center;padding:10px;color:var(--text2);font-size:13px}
 .approval-card{background:#fff8e1;border:1px solid #ffe082;border-radius:12px;padding:14px 18px;margin:12px 0;align-self:center;min-width:300px;max-width:90%}
 .approval-card h4{color:#f57f17;font-size:14px;margin-bottom:8px}
 .approval-card .detail{font-size:13px;color:#555;margin-bottom:10px}
 .approval-card .btns{display:flex;gap:8px;justify-content:center}
 .approval-card .btns button{padding:8px 20px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500}
-.approval-card .btn-ok{background:#43a047;color:#fff}
-.approval-card .btn-ok:hover{background:#388e3c}
-.approval-card .btn-no{background:#e53935;color:#fff}
-.approval-card .btn-no:hover{background:#c62828}
-.tool-card{align-self:flex-start;background:#f5f7fa;border:1px solid #e0e0e0;border-radius:10px;padding:10px 14px;margin:4px 0;font-size:13px;max-width:85%;min-width:200px}
-.tool-card .tool-name{font-weight:600;color:#1976d2}
+.approval-card .btn-ok{background:#43a047;color:#fff}.approval-card .btn-ok:hover{background:#388e3c}
+.approval-card .btn-no{background:#e53935;color:#fff}.approval-card .btn-no:hover{background:#c62828}
+.tool-card{align-self:flex-start;background:#f5f7fa;border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin:4px 0;font-size:13px;max-width:85%;min-width:200px}
+.tool-card .tool-name{font-weight:600;color:var(--accent)}
 .tool-card .tool-args{font-family:monospace;color:#666;margin-top:4px;white-space:pre-wrap;font-size:12px}
-.tool-card .tool-result{background:#e8f5e9;border-color:#a5d6a7;color:#2e7d32}
-.tool-card .tool-error{background:#ffebee;border-color:#ef9a9a;color:#c62828}
-
-.cmd-menu{position:absolute;bottom:100%;left:20px;right:20px;background:#fff;border:1px solid #e0e0e0;border-radius:12px 12px 0 0;box-shadow:0 -4px 12px rgba(0,0,0,0.1);max-height:240px;overflow-y:auto;display:none;z-index:100}
+.tool-card .tool-result{background:#e8f5e9;color:#2e7d32}.tool-card .tool-error{background:#ffebee;color:#c62828}
+.cmd-menu{position:absolute;bottom:100%;left:20px;right:20px;background:var(--surface);border:1px solid var(--border);border-radius:12px 12px 0 0;box-shadow:0 -4px 12px rgba(0,0,0,0.1);max-height:240px;overflow-y:auto;display:none;z-index:100}
 .cmd-menu.show{display:block}
-.cmd-item{padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #f5f5f5;display:flex;justify-content:space-between;align-items:center}
+.cmd-item{padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
 .cmd-item:last-child{border-bottom:none}
-.cmd-item:hover,.cmd-item.active{background:#e3f2fd}
-.cmd-item .cmd{color:#1976d2;font-weight:600;font-family:monospace}
-.cmd-item .desc{color:#999;font-size:12px}
-
-.msg-wrapper{position:relative;max-width:75%}
-.msg-wrapper .msg{max-width:100%}
-.msg-toolbar{position:absolute;top:-8px;right:-8px;display:none;gap:2px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:2px 4px;box-shadow:0 2px 8px rgba(0,0,0,0.1);z-index:10}
-.msg-wrapper:hover .msg-toolbar{display:flex}
-.msg-toolbar button{width:24px;height:24px;border:none;border-radius:4px;cursor:pointer;font-size:12px;line-height:24px;text-align:center;padding:0;background:transparent;color:#666}
-.msg-toolbar button:hover{background:#e3f2fd;color:#1976d2}
+.cmd-item:hover,.cmd-item.active{background:var(--active-bg)}
+.cmd-item .cmd{color:var(--accent);font-weight:600;font-family:monospace}
+.cmd-item .desc{color:var(--text2);font-size:12px}
+.notification-area{display:none;padding:8px 12px;background:#fff8e1;border-bottom:1px solid #ffe082;font-size:12px;color:#f57f17}
+.notification-area #notifications{font-size:12px}
 </style>
 </head>
 <body>
@@ -80,10 +67,13 @@ body{background:#1a1d27;--bg:#1a1d27;--surface:#222535;--border:#2e3147;--text:#
 <div id=session-list></div>
 </div>
 <div class=main>
+<div class="notification-area" id="notification-area"><div id="notifications"></div></div>
 <div id=messages><div class=placeholder>Select a session to start chatting</div></div>
+<div class="waiting" id="waiting">Claw is thinking...</div>
 <div class=input-area>
 <input id=input placeholder="Type a message..." disabled>
 <button id=btnSend disabled>Send</button>
+<div class="cmd-menu" id="cmdMenu"></div>
 </div>
 </div>
 <script>
@@ -98,24 +88,17 @@ function api(path, opts) {
   });
 }
 
+function esc(s) {
+  if (!s) return '';
+  var d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
 function load(filter) {
   if (!filter) filter = '';
-  // Check for completed tasks
-  fetch('/api/tasks').then(function(r){return r.json()}).then(function(tasks){
-    var done = tasks.filter(function(t){return t.status === 'completed' || t.status === 'failed'});
-    if (done.length > 0) {
-      var el = document.getElementById('notification-area');
-      el.style.display = 'block';
-      document.getElementById('notifications').innerHTML = done.slice(-3).map(function(t){
-        var icon = t.status === 'completed' ? '✅' : '❌';
-        return '<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">' + icon + ' ' + esc(t.content.slice(0,30)) + '</div>';
-      }).join('');
-    }
-  }).catch(function(){});
-
   api('/api/sessions').then(function(ss){
-    if (filter) ss = ss.filter(function(s){ return s.title.toLowerCase().indexOf(filter) === -1 && s.session_id.toLowerCase().indexOf(filter) === -1; });
-    ss = ss.filter(function(s){ return s.title.toLowerCase().indexOf(filter.toLowerCase()) !== -1 || s.session_id.toLowerCase().indexOf(filter.toLowerCase()) !== -1; });
+    if (filter) ss = ss.filter(function(s){ return s.title.toLowerCase().indexOf(filter) !== -1 || s.session_id.toLowerCase().indexOf(filter) !== -1; });
     var h = '';
     for (var i = 0; i < ss.length; i++) {
       var s = ss[i];
@@ -123,16 +106,15 @@ function load(filter) {
       var t = s.updated_at ? s.updated_at.slice(5,16) : '';
       h += '<div class="si' + a + '" data-id="' + s.session_id + '">' +
         '<div class="title">' + esc(s.title) + '</div>' +
-        '<div class="meta">' + t + ' <span class="badge">' + s.message_count + ' msgs</span><span style='color:var(--text2);font-size:10px'>~' + Math.round(s.message_count * 0.5) || '' + 'K</span></div>' +
+        '<div class="meta">' + t + ' <span class="badge">' + s.message_count + ' msgs</span></div>' +
         '<div class="btn-group">' +
-        '<button class="btn-rename">✎</button>' +
-        '<button class="btn-delete">✖</button>' +
+        '<button class="btn-rename">&#9998;</button>' +
+        '<button class="btn-delete">&#10006;</button>' +
         '</div>' +
         '</div>';
     }
     var el = document.getElementById('session-list');
     el.innerHTML = h;
-    // click on each session
     var items = el.querySelectorAll('.si');
     for (var j = 0; j < items.length; j++) {
       var si = items[j];
@@ -140,22 +122,10 @@ function load(filter) {
         if (e.target.closest('.btn-group')) return;
         switchTo(this.getAttribute('data-id'));
       });
-      // Rename button
       var rBtn = si.querySelector('.btn-rename');
-      if (rBtn) {
-        rBtn.addEventListener('click', function(e) {
-          e.stopPropagation();
-          doRename(this.closest('.si').getAttribute('data-id'));
-        });
-      }
-      // Delete button
+      if (rBtn) rBtn.addEventListener('click', function(e) { e.stopPropagation(); doRename(this.closest('.si').getAttribute('data-id')); });
       var dBtn = si.querySelector('.btn-delete');
-      if (dBtn) {
-        dBtn.addEventListener('click', function(e) {
-          e.stopPropagation();
-          doDelete(this.closest('.si').getAttribute('data-id'));
-        });
-      }
+      if (dBtn) dBtn.addEventListener('click', function(e) { e.stopPropagation(); doDelete(this.closest('.si').getAttribute('data-id')); });
     }
   }).catch(function(){});
 }
@@ -171,17 +141,11 @@ function switchTo(id) {
     var h = '';
     for (var i = 0; i < s.messages.length; i++) {
       var m = s.messages[i];
-      if (m.role === 'assistant') {
-        h += '<div class="msg-wrapper">' + renderMsg(m.role, m.content) + '<div class="msg-toolbar"><button class="tb-copy" title="Copy">C</button><button class="tb-regen" title="Regenerate">R</button></div></div>';
-      } else if (m.role === 'user') {
-        h += '<div class="msg-wrapper">' + renderMsg(m.role, m.content) + '<div class="msg-toolbar"><button class="tb-edit" title="Edit">E</button></div></div>';
-      } else {
-        h += renderMsg(m.role, m.content);
-      }
+      h += '<div class="msg ' + m.role + '">' + esc(m.content) + '</div>';
     }
-    el.innerHTML = h || '<div class="placeholder" id="welcomeMsg"><div style="font-size:32px;margin-bottom:12px;opacity:0.3">&#x1f4ac;</div><div style="font-weight:500;margin-bottom:4px">Welcome to SJTUClaw</div><div style="font-size:13px;color:#999;line-height:1.8">Click <b>+ New Session</b> to start<br>Or select an existing session from the sidebar<br>Type <b>/</b> for available commands</div></div>';
+    el.innerHTML = h || '<div class="placeholder">No messages yet</div>';
     el.scrollTop = el.scrollHeight;
-    load(document.getElementById('sessionSearch').value.toLowerCase().trim());
+    load();
   }).catch(function(){});
 }
 
@@ -195,7 +159,7 @@ function doRename(id) {
   var name = prompt('Rename ' + id + ':');
   if (name && name.trim()) {
     api('/api/sessions/' + id + '/rename', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({title:name.trim()})}).then(function(){
-      load(document.getElementById('sessionSearch').value.toLowerCase().trim());
+      load();
       if (cur === id) switchTo(id);
     }).catch(function(){});
   }
@@ -210,313 +174,43 @@ function doDelete(id) {
       document.getElementById('input').disabled = true;
       document.getElementById('btnSend').disabled = true;
     }
-    load(document.getElementById('sessionSearch').value.toLowerCase().trim());
+    load();
   }).catch(function(){});
-}
-
-function sendStream() {
-  var i = document.getElementById('input');
-  var t = i.value.trim();
-  if (!t || !cur) return;
-  i.value = '';
-  var el = document.getElementById('messages');
-  var ph = el.querySelector('.placeholder');
-  if (ph) ph.remove();
-  el.innerHTML += '<div class="msg user">' + esc(t) + '</div>';
-  document.getElementById('waiting').style.display = 'block';
-
-  var eventSource = new EventSource('/api/sessions/' + cur + '/messages/stream?content=' + encodeURIComponent(t));
-  // Actually SSE doesn't support POST with body via EventSource API
-  // We need to use fetch with streaming response instead
-
-  // Use fetch with ReadableStream
-  fetch('/api/sessions/' + cur + '/messages/stream', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({content: t})
-  }).then(function(response) {
-    var reader = response.body.getReader();
-    var decoder = new TextDecoder();
-    var buffer = '';
-    var msgEl = document.createElement('div');
-    msgEl.className = 'msg assistant';
-    el.appendChild(msgEl);
-
-    function readChunk() {
-      reader.read().then(function(result) {
-        if (result.done) {
-          document.getElementById('waiting').style.display = 'none';
-          load(document.getElementById('sessionSearch').value.toLowerCase().trim());
-          return;
-        }
-        buffer += decoder.decode(result.value, {stream: true});
-        var lines = buffer.split('
-');
-        buffer = lines.pop();
-        for (var i = 0; i < lines.length; i++) {
-          var line = lines[i].trim();
-          if (line.startsWith('data: ')) {
-            var data = line.slice(6);
-            try {
-              var event = JSON.parse(data);
-              if (event.type === 'token') {
-                msgEl.innerHTML += esc(event.content);
-                el.scrollTop = el.scrollHeight;
-              } else if (event.type === 'tool_call') {
-                msgEl.innerHTML += '<div class="tool-card"><div class="tool-name">' + esc(event.name) + '</div><div class="tool-args">' + esc(JSON.stringify(event.arguments)) + '</div></div>';
-                el.scrollTop = el.scrollHeight;
-              } else if (event.type === 'tool_result') {
-                msgEl.innerHTML += '<div class="tool-card tool-result">' + esc(event.result.slice(0,200)) + '</div>';
-                el.scrollTop = el.scrollHeight;
-              }
-            } catch(e) {}
-          }
-        }
-        readChunk();
-      });
-    }
-    readChunk();
-  }).catch(function(e) {
-    el.innerHTML += '<div class="msg assistant" style="color:#d32f2f">[Error] ' + esc(e.message) + '</div>';
-    document.getElementById('waiting').style.display = 'none';
-  });
 }
 
 function send() {
-  document.getElementById("waiting").style.display = "block";
-  var i = document.getElementById('input');
-  var t = i.value.trim();
+  var btn = document.getElementById('btnSend');
+  var input = document.getElementById('input');
+  var t = input.value.trim();
   if (!t || !cur) return;
-  i.value = '';
+  input.value = '';
+  btn.disabled = true;
+  input.disabled = true;
+  btn.textContent = '...';
+  document.getElementById('waiting').style.display = 'block';
   var el = document.getElementById('messages');
-  var ph = el.querySelector('.placeholder');
-  if (ph) ph.remove();
   el.innerHTML += '<div class="msg user">' + esc(t) + '</div>';
   api('/api/sessions/' + cur + '/messages', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content:t})}).then(function(r){
     el.innerHTML += '<div class="msg assistant">' + esc(r.reply) + '</div>';
-    document.getElementById('waiting').style.display = 'none';
     el.scrollTop = el.scrollHeight;
-    load(document.getElementById('sessionSearch').value.toLowerCase().trim());
+    load();
   }).catch(function(e){
     el.innerHTML += '<div class="msg assistant" style="color:#d32f2f">[Error] ' + esc(e.message) + '</div>';
+  }).finally(function(){
+    btn.disabled = false;
+    input.disabled = false;
+    btn.textContent = 'Send';
+    input.focus();
     document.getElementById('waiting').style.display = 'none';
   });
 }
-
-
-// Approval polling
-var approvalTimer = null;
-
-function startApprovalPolling() {
-  if (approvalTimer) clearInterval(approvalTimer);
-  approvalTimer = setInterval(function() {
-    fetch('/api/approvals').then(function(r){return r.json()}).then(function(data){
-      if (data.length > 0) {
-        var el = document.getElementById('messages');
-        for (var i = 0; i < data.length; i++) {
-          var a = data[i];
-          // Check if this approval is already shown
-          if (document.getElementById('app-card-' + a.approval_id)) continue;
-          var card = document.createElement('div');
-          card.id = 'app-card-' + a.approval_id;
-          card.className = 'approval-card';
-          card.innerHTML = '<h4>✅ Approval Required</h4>' +
-            '<div class="detail"><b>Tool:</b> ' + esc(a.tool) + '<br>' +
-            '<b>Args:</b> ' + esc(JSON.stringify(a.args)) + '</div>' +
-            '<div class="btns">' +
-            '<button class="btn-ok" onclick="doApprove('' + a.approval_id + '')">✅ Approve</button>' +
-            '<button class="btn-no" onclick="doReject('' + a.approval_id + '')">❌ Reject</button>' +
-            '</div>';
-          el.appendChild(card);
-          el.scrollTop = el.scrollHeight;
-        }
-      }
-    }).catch(function(){});
-  }, 2000);
-}
-
-function doApprove(id) {
-  fetch('/api/approvals/' + id + '/approve', {method:'POST'}).then(function(){
-    var card = document.getElementById('app-card-' + id);
-    if (card) card.innerHTML = '<div style="color:#43a047;font-weight:500;text-align:center">✅ Approved</div>';
-    // The next user message will trigger the actual tool execution
-  }).catch(function(){});
-}
-
-function doReject(id) {
-  fetch('/api/approvals/' + id + '/reject', {method:'POST'}).then(function(){
-    var card = document.getElementById('app-card-' + id);
-    if (card) card.innerHTML = '<div style="color:#e53935;font-weight:500;text-align:center">❌ Rejected</div>';
-  }).catch(function(){});
-}
-
-function renderMsg(role, content) {
-  if (role === 'tool') {
-    var lines = content.split(chr(10));
-    var toolName = lines[0] || 'tool';
-    var resultClass = 'tool-result';
-    return '<div class="tool-card"><div class="tool-name">' + esc(toolName) + '</div><div class="tool-args">' + esc(content.slice(0, 500)) + '</div></div>';
-  }
-  return '<div class="msg ' + role + '">' + esc(content) + '</div>';
-}
-function esc(s) {
-  if (!s) return '';
-  if (typeof marked !== 'undefined' && !window.markedFailed) {
-    var html = marked.parse(s);
-    // Only use markdown if it contains formatting
-    if (html !== '<p>' + s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</p>
-') {
-      return html;
-    }
-  }
-  var d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
-
-
-var COMMANDS = [
-  {cmd:"session new",desc:"Create new session"},
-  {cmd:"session list",desc:"List all sessions"},
-  {cmd:"session switch",desc:"Switch session"},
-  {cmd:"session rename",desc:"Rename session"},
-  {cmd:"session delete",desc:"Delete session"},
-  {cmd:"memory add",desc:"Add memory"},
-  {cmd:"memory list",desc:"List memories"},
-  {cmd:"memory delete",desc:"Delete memory"},
-  {cmd:"skill list",desc:"List skills"},
-  {cmd:"task new",desc:"Create scheduled task"},
-  {cmd:"task list",desc:"List tasks"},
-  {cmd:"task cancel",desc:"Cancel task"},
-  {cmd:"workspace set",desc:"Set workspace"},
-  {cmd:"compact",desc:"Compact context"},
-  {cmd:"exit",desc:"Exit"},
-];
-
-document.getElementById("input").addEventListener("input", function(e) {
-  var val = e.target.value;
-  var menu = document.getElementById("cmdMenu");
-  if (val.startsWith("/")) {
-    var query = val.slice(1).toLowerCase();
-    var matches = COMMANDS.filter(function(c) {
-      return c.cmd.indexOf(query) === 0;
-    }).slice(0, 6);
-    if (matches.length > 0) {
-      menu.innerHTML = matches.map(function(c) {
-        return '<div class="cmd-item" data-cmd="/" + c.cmd + ""><span class="cmd">/' + c.cmd + "</span><span class="desc">" + c.desc + "</span></div>";
-      }).join("");
-      menu.classList.add("show");
-      menu.querySelectorAll(".cmd-item").forEach(function(item) {
-        item.addEventListener("click", function() {
-          document.getElementById("input").value = this.getAttribute("data-cmd") + " ";
-          menu.classList.remove("show");
-          document.getElementById("input").focus();
-        });
-      });
-      return;
-    }
-  }
-  menu.classList.remove("show");
-});
-
-document.getElementById("input").addEventListener("keydown", function(e) {
-  var menu = document.getElementById("cmdMenu");
-  if (!menu.classList.contains("show")) return;
-  var items = menu.querySelectorAll(".cmd-item");
-  var active = menu.querySelector(".active");
-  var idx = -1;
-  if (active) idx = Array.from(items).indexOf(active);
-  if (e.key === "ArrowDown") {
-    e.preventDefault();
-    if (active) active.classList.remove("active");
-    idx = Math.min(idx + 1, items.length - 1);
-    items[idx].classList.add("active");
-  } else if (e.key === "ArrowUp") {
-    e.preventDefault();
-    if (active) active.classList.remove("active");
-    idx = Math.max(idx - 1, 0);
-    items[idx].classList.add("active");
-  } else if (e.key === "Enter" || e.key === "Tab") {
-    if (active) {
-      e.preventDefault();
-      document.getElementById("input").value = active.getAttribute("data-cmd") + " ";
-      menu.classList.remove("show");
-      document.getElementById("input").focus();
-    }
-  } else if (e.key === "Escape") {
-    menu.classList.remove("show");
-  }
-});
-
-document.addEventListener("click", function(e) {
-  if (!e.target.closest(".input-area")) {
-    document.getElementById("cmdMenu").classList.remove("show");
-  }
-});
-
-document.getElementById('sessionSearch').addEventListener('input', function() {
-  load(this.value.toLowerCase().trim());
-});
-
-document.addEventListener('keydown', function(e) {
-  // Ctrl+N -> new session (only when not typing)
-  if (e.ctrlKey && e.key === 'n') {
-    e.preventDefault();
-    newSession();
-  }
-});
-
-document.getElementById('btnExport').addEventListener('click', function() {
-  if (!cur) return;
-  api('/api/sessions/' + cur).then(function(s) {
-    var md = '# ' + s.title + '
-
-';
-    s.messages.forEach(function(m) {
-      var role = m.role === 'user' ? '**User**' : '**Assistant**';
-      md += role + ': ' + m.content + '
-
-';
-    });
-    var blob = new Blob([md], {type: 'text/markdown'});
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = s.session_id + '.md';
-    a.click();
-  });
-});
 
 document.addEventListener('DOMContentLoaded', function(){
   document.getElementById('btnNew').addEventListener('click', newSession);
-  document.getElementById('btnSend').addEventListener('click', sendStream);
+  document.getElementById('btnSend').addEventListener('click', send);
   document.getElementById('input').addEventListener('keydown', function(e){
-    if (e.key === 'Enter') sendStream();
+    if (e.key === 'Enter') send();
   });
-  
-  // Toolbar event delegation
-  document.getElementById('messages').addEventListener('click', function(e) {
-    var btn = e.target.closest('.tb-copy, .tb-regen');
-    if (!btn) return;
-    if (btn.classList.contains('tb-edit')) {
-      var msg = btn.closest('.msg-wrapper').querySelector('.msg');
-      var text = msg.textContent || msg.innerText;
-      document.getElementById('input').value = text;
-      document.getElementById('input').focus();
-    } else if (btn.classList.contains('tb-copy')) {
-      var msg = btn.closest('.msg-wrapper').querySelector('.msg');
-      var text = msg.textContent || msg.innerText;
-      navigator.clipboard.writeText(text).catch(function(){});
-      btn.textContent = 'OK';
-      setTimeout(function(){btn.textContent = 'C'}, 1500);
-    } else if (btn.classList.contains('tb-regen')) {
-      var msgs = document.querySelectorAll('.msg.user');
-      if (msgs.length > 0) {
-        document.getElementById('input').value = msgs[msgs.length - 1].textContent;
-        sendStream();
-      }
-    }
-  });
-  startApprovalPolling();
   load();
 });
 </script>

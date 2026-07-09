@@ -30,32 +30,34 @@ class GatewayHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
 
-        # List pending approvals
-        if path == '/api/approvals':
-            from src.workspace import list_approvals
-            approvals = list_approvals()
-            return self._json(approvals)
+        # --- API routes (first match wins) ---
 
+        # Health
+        if path == '/api/health':
+            return self._json({"status": "ok"})
+
+        # List pending approvals
         if path == '/api/approvals':
             from src.workspace import list_approvals
             return self._json(list_approvals())
 
+        # List skills
         if path == '/api/skills':
             from src.skill_registry import scan_skills
             return self._json(scan_skills())
 
+        # Get workspace
         if path == '/api/workspace':
             from src.workspace import get_workspace
             ws = get_workspace()
             return self._json({"workspace": str(ws) if ws else None})
 
+        # List tasks
         if path == '/api/tasks':
             from src.scheduler import list_tasks
             return self._json(list_tasks())
 
-        if path == '/api/health':
-            return self._json({"status": "ok"})
-
+        # List sessions
         if path == '/api/sessions':
             sessions = list_sessions()
             return self._json([{
@@ -65,25 +67,9 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                 "updated_at": s.updated_at,
             } for s in sessions])
 
-        if path.startswith('/api/sessions/') and path.endswith('/messages'):
-            return self._json({"error": "use POST"}, 405)
-
-        # Session detail
-        if path.startswith('/api/sessions/'):
-            sid = path.split('/api/sessions/')[1].split('/')[0]
-            session = load_session(sid)
-            if session is None:
-                return self._json({"error": "not found"}, 404)
-            return self._json({
-                "session_id": session.session_id,
-                "title": session.title,
-                "messages": [{"role": m["role"], "content": m["content"]} for m in session.messages],
-                "message_count": session.message_count,
-            })
-
-        # Download files
+        # Download file
         if path.startswith('/api/downloads/'):
-            dl_id = path.split('/api/downloads/')[1].split('/')[0]
+            dl_id = self._path_segment(path, 2)
             from src.workspace import get_download_path
             file_path = get_download_path(dl_id)
             if file_path is None:
@@ -101,7 +87,7 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             return
 
         # Get individual attachment
-        if path.startswith('/api/sessions/') and '/attachments/' in path:
+        if '/attachments/' in path:
             parts = path.split('/api/sessions/')[1].split('/')
             sid = parts[0]
             filename = parts[2]
@@ -117,7 +103,7 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             return
 
         # List session attachments
-        if path.startswith('/api/sessions/') and path.endswith('/attachments'):
+        if path.endswith('/attachments'):
             sid = path.split('/api/sessions/')[1].split('/')[0]
             attach_dir = ATTACHMENTS_DIR / sid
             if not attach_dir.exists():
@@ -128,38 +114,20 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                     items.append({"filename": f.name, "size": f.stat().st_size})
             return self._json(items)
 
-        # List session attachments
-        if path.startswith('/api/sessions/') and path.endswith('/attachments'):
+        # Session detail
+        if path.startswith('/api/sessions/'):
             sid = path.split('/api/sessions/')[1].split('/')[0]
-            attach_dir = ATTACHMENTS_DIR / sid
-            if not attach_dir.exists():
-                return self._json([])
-            items = []
-            for f in attach_dir.iterdir():
-                if f.is_file():
-                    items.append({"filename": f.name, "size": f.stat().st_size})
-            return self._json(items)
+            session = load_session(sid)
+            if session is None:
+                return self._json({"error": "not found"}, 404)
+            return self._json({
+                "session_id": session.session_id,
+                "title": session.title,
+                "messages": [{"role": m["role"], "content": m["content"]} for m in session.messages],
+                "message_count": session.message_count,
+            })
 
-        # Download API
-        if path.startswith('/api/downloads/'):
-            dl_id = path.split('/api/downloads/')[1].split('/')[0]
-            from src.workspace import get_download_path
-            file_path = get_download_path(dl_id)
-            if file_path is None:
-                return self._json({"error": "download not found"}, 404)
-            try:
-                data = file_path.read_bytes()
-                self.send_response(200)
-                self.send_header('Content-Type', 'application/octet-stream')
-                self.send_header('Content-Disposition', 'attachment; filename="' + file_path.name + '"')
-                self.send_header('Content-Length', str(len(data)))
-                self.end_headers()
-                self.wfile.write(data)
-            except Exception as e:
-                return self._json({"error": str(e)}, 500)
-            return
-
-        # Static files
+        # Static files (fallback)
         if path == '/':
             path = '/index.html'
         return super().do_GET()
@@ -188,6 +156,7 @@ class GatewayHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
 
+        # POST /api/sessions — create new session
         if path == '/api/sessions':
             session = create_session()
             return self._json({
@@ -196,26 +165,56 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                 "message_count": 0,
             }, 201)
 
-        # POST /api/workspace
+        # POST /api/workspace — set workspace
         if path == '/api/workspace':
-            body = json.loads(self.rfile.read(int(self.headers.get('Content-Length', 0))))
+            body = self._read_json()
             from src.workspace import set_workspace
             result = set_workspace(body.get('path', ''))
             return self._json({"result": result})
 
-        # POST /api/tasks
+        # POST /api/tasks — create task
         if path == '/api/tasks':
-            body = json.loads(self.rfile.read(int(self.headers.get('Content-Length', 0))))
+            body = self._read_json()
             from src.scheduler import create_task
             task = create_task(body.get('content',''), body.get('trigger_time',''), body.get('session_id',''), body.get('repeat_rule',''))
             if task:
                 return self._json(task, 201)
             return self._json({"error": "invalid task params"}, 400)
 
-        # POST /api/sessions/<id>/attachments
-        if path.endswith('/attachments'):
-            from src.tool_registry import get_registry as _
-            sid = path.split('/api/sessions/')[1].split('/')[0]
+        # POST /api/approvals/<id>/approve or /reject
+        if path.startswith('/api/approvals/'):
+            parts = path.split('/api/approvals/')[1].split('/')
+            if len(parts) >= 2:
+                aid = parts[0]
+                action = parts[1]
+                from src.workspace import approve as do_approve, reject as do_reject
+                if action == 'approve':
+                    return self._json({"status": "approved" if do_approve(aid) else "not found"})
+                elif action == 'reject':
+                    return self._json({"status": "rejected" if do_reject(aid) else "not found"})
+            return self._json({"error": "invalid approval path"}, 400)
+
+        # Extract session_id from path for session-scoped routes
+        if not path.startswith('/api/sessions/'):
+            return self._json({"error": "not found"}, 404)
+
+        sid = path.split('/api/sessions/')[1].split('/')[0]
+
+        # POST .../rename
+        if '/rename' in path:
+            session = load_session(sid)
+            if session is None:
+                return self._json({"error": "session not found"}, 404)
+            body = self._read_json()
+            title = body.get('title', '').strip()
+            if title:
+                session.title = title
+                save_session(session)
+                return self._json({"status": "renamed", "session_id": sid, "title": title})
+            return self._json({"error": "title required"}, 400)
+
+        # POST .../attachments — upload file
+        if '/attachments' in path and not '/messages' in path:
             content_length = int(self.headers.get('Content-Length', 0))
             if content_length == 0:
                 return self._json({"error": "no data"}, 400)
@@ -225,50 +224,14 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             attach_dir.mkdir(parents=True, exist_ok=True)
             filename = uuid.uuid4().hex
             (attach_dir / filename).write_bytes(body)
-            return self._json({"filename": filename, "size": len(body), "path": sid + "/" + filename}, 201)
-
-        # POST /api/sessions/<id>/rename
-        if '/rename' in path:
-            sid = path.split('/api/sessions/')[1].split('/')[0]
-            session = load_session(sid)
-            if session is None:
-                return self._json({"error": "session not found"}, 404)
-            try:
-                body = json.loads(self.rfile.read(int(self.headers.get('Content-Length', 0))))
-            except Exception:
-                return self._json({"error": "invalid JSON"}, 400)
-            title = body.get('title', '').strip()
-            if title:
-                session.title = title
-                save_session(session)
-                return self._json({"status": "renamed", "session_id": sid, "title": title})
-            return self._json({"error": "title required"}, 400)
-
-        # POST /api/sessions/<id>/attachments
-        if path.endswith('/attachments'):
-            # This route should be before /messages to avoid conflict
-            sid = path.split('/api/sessions/')[1].split('/')[0]
-            content_length = int(self.headers.get('Content-Length', 0))
-            if content_length == 0:
-                return self._json({"error": "no data"}, 400)
-            body = self.rfile.read(content_length)
-            import uuid
-            attach_dir = ATTACHMENTS_DIR / sid
-            attach_dir.mkdir(parents=True, exist_ok=True)
-            filename = f"{uuid.uuid4().hex}"
-            (attach_dir / filename).write_bytes(body)
             return self._json({"filename": filename, "size": len(body), "path": f"{sid}/{filename}"}, 201)
 
-        # POST /api/sessions/<id>/messages/stream - SSE streaming
+        # POST .../messages/stream — SSE streaming
         if '/messages/stream' in path:
-            sid = path.split('/api/sessions/')[1].split('/')[0]
             session = load_session(sid)
             if session is None:
                 return self._json({"error": "session not found"}, 404)
-            try:
-                body = json.loads(self.rfile.read(int(self.headers.get('Content-Length', 0))))
-            except Exception:
-                return self._json({"error": "invalid JSON"}, 400)
+            body = self._read_json()
             content_text = body.get('content', '').strip()
             if not content_text:
                 return self._json({"error": "content required"}, 400)
@@ -283,66 +246,45 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             try:
                 for event in _run_agent_stream(_config, session, content_text):
                     line = 'data: ' + json.dumps(event, ensure_ascii=False) + '\n\n'
-
                     self.wfile.write(line.encode('utf-8'))
                     self.wfile.flush()
             except Exception as e:
                 err = json.dumps({"type": "error", "content": str(e)}, ensure_ascii=False)
-                self.wfile.write(('data: ' + err + '\r\n\r\n').encode('utf-8'))
-
-
+                self.wfile.write(('data: ' + err + '\n\n').encode('utf-8'))
                 self.wfile.flush()
             return
 
-        # POST /api/sessions/<id>/messages
+        # POST .../messages — send message (default fallback)
         if '/messages' in path:
-            sid = path.split('/api/sessions/')[1].split('/')[0]
             session = load_session(sid)
             if session is None:
                 return self._json({"error": "session not found"}, 404)
-
-            try:
-                body = json.loads(self.rfile.read(int(self.headers.get('Content-Length', 0))))
-            except Exception:
-                return self._json({"error": "invalid JSON"}, 400)
-
+            body = self._read_json()
             content = body.get('content', '').strip()
             if not content:
                 return self._json({"error": "content required"}, 400)
-
             try:
                 reply = process_and_compact(_config, session, content)
                 return self._json({"reply": reply, "session_id": session.session_id})
             except Exception as e:
                 return self._json({"reply": f"[API Error] {str(e)[:200]}", "session_id": session.session_id})
 
-        # POST /api/approvals/<id>/approve or /reject
-        if path.startswith('/api/approvals/'):
-            parts = path.split('/api/approvals/')[1].split('/')
-            if len(parts) >= 2:
-                aid = parts[0]
-                action = parts[1]
-                from src.workspace import approve as do_approve, reject as do_reject
-                if action == 'approve':
-                    ok = do_approve(aid)
-                    return self._json({"status": "approved" if ok else "not found"})
-                elif action == 'reject':
-                    ok = do_reject(aid)
-                    return self._json({"status": "rejected" if ok else "not found"})
-
-        # POST /api/approvals/<id>/approve or /reject
-        if path.startswith('/api/approvals/'):
-            parts = path.split('/api/approvals/')[1].split('/')
-            if len(parts) >= 2:
-                aid = parts[0]
-                action = parts[1]
-                from src.workspace import approve as do_approve, reject as do_reject
-                if action == 'approve':
-                    return self._json({"status": "approved" if do_approve(aid) else "not found"})
-                elif action == 'reject':
-                    return self._json({"status": "rejected" if do_reject(aid) else "not found"})
-
         return self._json({"error": "not found"}, 404)
+
+    def _path_segment(self, path: str, index: int) -> str:
+        """Extract a segment from a /api/xxx/yyy/zzz path by 0-based index"""
+        parts = [p for p in path.split('/') if p]
+        return parts[index] if index < len(parts) else ""
+
+    def _read_json(self):
+        """Read and parse JSON request body"""
+        try:
+            length = int(self.headers.get('Content-Length', 0))
+            if length == 0:
+                return {}
+            return json.loads(self.rfile.read(length))
+        except (json.JSONDecodeError, ValueError):
+            return {}
 
     def _json(self, data, status=200):
         data_bytes = json.dumps(data, ensure_ascii=False).encode('utf-8')

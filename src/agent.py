@@ -18,7 +18,7 @@ from src.config import LLMConfig
 from src.context_builder import build_context
 from src.llm_client import chat_completion
 from src.memory_store import consolidate_memories, extract_memories
-from src.session_store import Session, save_session
+from src.session_store import Session, save_session, load_session
 from src.tool_registry import get_registry
 
 
@@ -30,7 +30,8 @@ def process_message(
     """处理一条用户消息：单轮 LLM + tool calling 循环"""
     session.messages.append({"role": "user", "content": user_content})
 
-    # Agent loop: LLM → tool → LLM → tool → ... → final
+    # Agent loop: LLM → tool → LLM → tool → … → final
+    # 限制 tool call 轮次，防止模型死循环
     max_tool_rounds = 10
     tool_rounds = 0
     final_reply = ""
@@ -77,7 +78,7 @@ def process_message(
     # 保存 session
     save_session(session)
 
-    # 自动提取记忆
+    # 自动提取记忆（失败不影响主流程）
     try:
         extract_memories(config, session.messages)
         consolidate_memories(config)
@@ -91,7 +92,7 @@ def _run_agent_stream(config: LLMConfig, session: Session, user_content: str):
     """以流式事件运行 agent loop（供 SSE endpoint 使用）
 
     Yields:
-        events: {type, content/name/arguments...}
+        events: {type, content/name/arguments…}
     """
     from src.context_builder import build_context
     from src.llm_client import chat_completion_stream
@@ -101,17 +102,20 @@ def _run_agent_stream(config: LLMConfig, session: Session, user_content: str):
     # Add user message
     append_message(session.session_id, "user", user_content)
 
+    # 重新加载 session 确保拿到最新数据
+    new_session = load_session(session.session_id)
+    if new_session:
+        session = new_session
+
     max_tool_rounds = 10
     tool_rounds = 0
 
     while tool_rounds < max_tool_rounds:
         tool_rounds += 1
 
-        # Build context
         messages = build_context(session)
         tools_defs = get_registry().get_definitions()
 
-        # Stream LLM response
         collected_text = ""
         tool_calls = []
 
@@ -133,10 +137,10 @@ def _run_agent_stream(config: LLMConfig, session: Session, user_content: str):
             append_message(session.session_id, "assistant", collected_text)
             yield {"type": "text_done", "content": collected_text}
 
-        # Execute tool calls
         if not tool_calls:
             break
 
+        # Execute tool calls
         for tc in tool_calls:
             name = tc["name"]
             args = tc["arguments"]
