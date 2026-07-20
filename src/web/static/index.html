@@ -54,7 +54,7 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 .si .title{font-size:13px;color:var(--text);padding-right:50px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .si .meta{font-size:11px;color:var(--text2);margin-top:2px;display:flex;align-items:center;gap:6px}
 .si .badge{font-size:10px;background:var(--active-bg);color:var(--accent);padding:1px 6px;border-radius:6px}
-.si .btn-group{position:absolute;top:8px;right:8px;display:flex;gap:2px;opacity:0;transition:opacity .15s}
+.si .btn-group{position:absolute;top:8px;right:8px;display:flex;gap:2px;opacity:0.6;transition:opacity .15s}
 .si:hover .btn-group{opacity:1}
 .si .btn-group button{width:22px;height:22px;border:none;border-radius:6px;cursor:pointer;font-size:10px;line-height:22px;text-align:center;padding:0;transition:all .15s}
 .si .btn-rename{background:var(--bg);color:var(--text2)}.si .btn-rename:hover{background:var(--active-bg);color:var(--accent)}
@@ -89,6 +89,14 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 .input-area button:hover:not(:disabled){background:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-lg)}
 .input-area button:disabled{opacity:0.4;cursor:not-allowed}
 .waiting{display:none;text-align:center;padding:6px;color:var(--text2);font-size:12px;letter-spacing:0.3px}
+/* Command menu */
+.cmd-menu{position:absolute;bottom:100%;left:24px;right:24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg) var(--radius-lg) 0 0;box-shadow:0 -4px 20px rgba(0,0,0,0.08);max-height:200px;overflow-y:auto;display:none;z-index:50}
+.cmd-menu.show{display:block}
+.cmd-item{padding:8px 14px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;transition:background .1s}
+.cmd-item:last-child{border-bottom:none}
+.cmd-item:hover,.cmd-item.active{background:var(--active-bg)}
+.cmd-item .cmd{color:var(--accent);font-weight:600;font-family:monospace}
+.cmd-item .desc{color:var(--text2);font-size:11px}
 
 .approval-card{background:var(--surface);border:1px solid var(--accent);border-radius:var(--radius-lg);padding:16px 20px;margin:8px auto;align-self:center;min-width:300px;max-width:90%;box-shadow:var(--shadow-lg)}
 .approval-card h4{color:var(--accent);font-size:13px;margin-bottom:8px;font-weight:600}
@@ -136,6 +144,7 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
   <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7L13 1L7 13L5 9L1 7Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
   Send
 </button>
+<div class="cmd-menu" id="cmdMenu"></div>
 </div>
 </div>
 <script>
@@ -300,6 +309,25 @@ function resetSend(btn, input) {
   document.getElementById('waiting').style.display = 'none';
 }
 
+var COMMANDS = [
+  {cmd:"/session new", desc:"Create new session"},
+  {cmd:"/session list", desc:"List all sessions"},
+  {cmd:"/session rename", desc:"Rename session"},
+  {cmd:"/session delete", desc:"Delete session"},
+  {cmd:"/memory add", desc:"Add memory"},
+  {cmd:"/memory list", desc:"List memories"},
+  {cmd:"/memory delete", desc:"Delete memory"},
+  {cmd:"/skill list", desc:"List skills"},
+  {cmd:"/skill", desc:"Invoke a skill"},
+  {cmd:"/task new", desc:"Create a task"},
+  {cmd:"/task list", desc:"List tasks"},
+  {cmd:"/task cancel", desc:"Cancel a task"},
+  {cmd:"/workspace set", desc:"Set workspace directory"},
+  {cmd:"/workspace clear", desc:"Clear workspace"},
+  {cmd:"/compact", desc:"Compact context manually"},
+  {cmd:"/exit", desc:"Exit program"},
+];
+
 document.addEventListener('DOMContentLoaded', function(){
   document.getElementById('btnNew').addEventListener('click', newSession);
   document.getElementById('btnSend').addEventListener('click', send);
@@ -319,7 +347,55 @@ document.addEventListener('DOMContentLoaded', function(){
     e.target.value = '';
   });
   load();
+  // Command menu
+  document.getElementById('input').addEventListener('input', function(e) {
+    var val = e.target.value;
+    if (val.startsWith('/')) {
+      showCommands(val);
+    } else {
+      hideCommands();
+    }
+  });
+  document.getElementById('input').addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') hideCommands();
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      var menu = document.getElementById('cmdMenu');
+      if (!menu.classList.contains('show')) return;
+      e.preventDefault();
+      var items = menu.querySelectorAll('.cmd-item');
+      var idx = -1;
+      items.forEach(function(item, i) { if (item.classList.contains('active')) { item.classList.remove('active'); idx = i; } });
+      var next = e.key === 'ArrowDown' ? Math.min(idx + 1, items.length - 1) : Math.max(idx - 1, 0);
+      if (next >= 0 && items[next]) items[next].classList.add('active');
+    }
+    if (e.key === 'Enter') {
+      var menu = document.getElementById('cmdMenu');
+      if (menu.classList.contains('show')) {
+        var active = menu.querySelector('.cmd-item.active');
+        if (active) {
+          e.preventDefault();
+          document.getElementById('input').value = active.getAttribute('data-cmd') + ' ';
+          hideCommands();
+          document.getElementById('input').focus();
+        }
+      }
+    }
+  });
 });
+
+function showCommands(val) {
+  var menu = document.getElementById('cmdMenu');
+  var match = COMMANDS.filter(function(c){ return c.cmd.indexOf(val) === 0; });
+  if (!match.length) { hideCommands(); return; }
+  menu.innerHTML = match.map(function(c, i){
+    return '<div class="cmd-item' + (i === 0 ? ' active' : '') + '" data-cmd="' + c.cmd + '"><span class="cmd">' + c.cmd + '</span><span class="desc">' + c.desc + '</span></div>';
+  }).join('');
+  menu.classList.add('show');
+}
+
+function hideCommands() {
+  document.getElementById('cmdMenu').classList.remove('show');
+}
 
 function openSkills() {
   var overlay = document.getElementById("skillOverlay");
