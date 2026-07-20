@@ -377,17 +377,24 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                 return self._json({"error": "session not found"}, 404)
             body = self._read_json()
             content = body.get('content', '').strip()
-            if not content:
-                return self._json({"error": "content required"}, 400)
-            # 将附件列表注入到消息中，让 model 知道
             attachments = body.get('attachments', [])
+            # 允许纯发文件（没有文本内容）
+            if not content and not attachments:
+                return self._json({"error": "content required"}, 400)
+            # 将附件内容拼入 prompt
             if attachments:
-                parts = ["[The user has attached the following files — content is already provided below, no need to read them again:]"]
+                file_list = []
+                file_bodies = []
                 for fname in attachments:
-                    file_content = _read_attachment_content(sid, fname)
-                    parts.append(f"--- {fname} ---\n{file_content}")
-                attach_info = "\n".join(parts)
-                content = attach_info + "\n\n" + content
+                    fcontent = _read_attachment_content(sid, fname)
+                    file_bodies.append(f"--- {fname} ---\n{fcontent}")
+                    file_list.append(fname)
+                prefix = (
+                    "[The user attached " + ", ".join(file_list) + ". "
+                    "The full file contents follow. Do NOT repeat them in your reply — just respond to the user's request directly, or if no specific request was made, briefly summarize what you see.]\n\n"
+                    + "\n".join(file_bodies)
+                )
+                content = prefix + ("\n\n" + content if content else "")
             try:
                 reply = process_and_compact(_config, session, content)
                 return self._json({"reply": reply, "session_id": session.session_id})
