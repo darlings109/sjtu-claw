@@ -243,6 +243,12 @@ function send() {
     api('/api/sessions/' + cur + '/messages', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}).then(function(r){
       el.innerHTML += '<div class="msg assistant"><div class="md">' + marked.parse(esc(r.reply)) + '</div></div>';
       el.scrollTop = el.scrollHeight;
+      // delete sent attachments so they are not re-sent
+      if (hasAttachments) {
+        attachments.forEach(function(f){
+          fetch('/api/sessions/' + encodeURIComponent(cur) + '/attachments/' + encodeURIComponent(f.filename), {method:'DELETE'}).catch(function(){});
+        });
+      }
       load();
     }).catch(function(e){
       el.innerHTML += '<div class="msg assistant" style="color:var(--danger)">[Error] ' + esc(e.message) + '</div>';
@@ -258,6 +264,12 @@ function send() {
     api('/api/sessions/' + cur + '/messages', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content: t})}).then(function(r){
       el.innerHTML += '<div class="msg assistant"><div class="md">' + marked.parse(esc(r.reply)) + '</div></div>';
       el.scrollTop = el.scrollHeight;
+      // delete sent attachments so they are not re-sent
+      if (hasAttachments) {
+        attachments.forEach(function(f){
+          fetch('/api/sessions/' + encodeURIComponent(cur) + '/attachments/' + encodeURIComponent(f.filename), {method:'DELETE'}).catch(function(){});
+        });
+      }
       load();
     }).catch(function(e){
       el.innerHTML += '<div class="msg assistant" style="color:var(--danger)">[Error] ' + esc(e.message) + '</div>';
