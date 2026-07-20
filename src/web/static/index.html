@@ -65,7 +65,10 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 
 .main{flex:1;display:flex;flex-direction:column;background:var(--bg)}
 #messages{flex:1;overflow-y:auto;padding:24px 32px;display:flex;flex-direction:column;gap:12px}
-.msg{max-width:72%;padding:14px 20px;border-radius:16px;font-size:14px;line-height:1.65;white-space:pre-wrap;word-break:break-word;animation:msgIn .3s ease}
+.msg{max-width:72%;padding:14px 20px;border-radius:16px;font-size:14px;line-height:1.65;white-space:pre-wrap;word-break:break-word;animation:msgIn .3s ease;position:relative}
+.msg .copy-btn{position:absolute;top:-18px;right:0;display:none;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:10px;cursor:pointer;color:var(--text2);transition:all .12s;z-index:5}
+.msg:hover .copy-btn{display:block}
+.msg .copy-btn:hover{background:var(--active-bg);color:var(--accent)}
 @keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .msg.user{align-self:flex-end;background:var(--msg-user);color:#fff;border-bottom-right-radius:4px}
 .msg.assistant{align-self:flex-start;background:var(--msg-assistant);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:4px;box-shadow:var(--shadow)}
@@ -208,9 +211,9 @@ function switchTo(id) {
     for (var i = 0; i < s.messages.length; i++) {
       var m = s.messages[i];
       if (m.role === 'assistant') {
-	        h += '<div class="msg assistant"><div class="md">' + marked.parse(esc(m.content)) + '</div></div>';
+	        h += '<div class="msg assistant"><span class="copy-btn" onclick="navigator.clipboard.writeText(esc(m.content));this.textContent='Copied!';setTimeout(()=>this.textContent='📋 Copy',1500)" title="Copy">📋 Copy</span><div class="md">' + marked.parse(esc(m.content)) + '</div></div>';
 	      } else {
-	        h += '<div class="msg ' + m.role + '">' + esc(m.content) + '</div>';
+	        h += '<div class="msg ' + m.role + '"><span class="copy-btn" onclick="navigator.clipboard.writeText(esc(m.content));this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'📋 Copy\',1500)" title="Copy">📋 Copy</span>' + esc(m.content) + '</div>';
 	      }
     }
     el.innerHTML = h || '<div class="placeholder">No messages yet</div>';
