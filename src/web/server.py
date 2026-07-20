@@ -233,10 +233,16 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             sid = path.split('/api/sessions/')[1].split('/')[0]
             # DELETE /api/sessions/<id>/attachments/<filename>
             if '/attachments/' in path:
-                filename = path.split('/attachments/')[1].split('/')[0]
+                from urllib.parse import unquote
+                filename = unquote(path.split('/attachments/')[1].split('/')[0])
                 file_path = ATTACHMENTS_DIR / sid / filename
+                import os as _os
+                print(f"[DELETE] sid={sid} filename={repr(filename)} exists={file_path.exists()}")
+                if file_path.exists():
+                    # 列出目录内容对比
+                    print(f"[DELETE] dir={_os.listdir(str(ATTACHMENTS_DIR / sid))}")
                 if not file_path.exists():
-                    return self._json({"error": "not found"}, 404)
+                    return self._json({"error": "not found", "filename": filename}, 404)
                 file_path.unlink()
                 return self._json({"status": "deleted", "filename": filename})
             # DELETE /api/sessions/<id>

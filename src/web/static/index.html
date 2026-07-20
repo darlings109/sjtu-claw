@@ -4,85 +4,96 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SJTUClaw</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,sans-serif;display:flex;height:100vh;background:#f5f5f5;--bg:#f5f5f5;--surface:#fff;--border:#e0e0e0;--text:#333;--text2:#999;--accent:#1976d2;--accent-hover:#1565c0;--msg-user:#1976d2;--msg-assistant:#fff;--hover-bg:#f0f0f0;--active-bg:#e3f2fd;--active-border:#90caf9;--danger:#c62828;--danger-bg:#fce4ec}
+body{font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;display:flex;height:100vh;background:#f4f4f8;--bg:#f4f4f8;--surface:#ffffff;--surface-raised:#f8f8fc;--border:#e8e8f0;--text:#1a1a2e;--text2:#8888a0;--accent:#5b5fe0;--accent-glow:rgba(91,95,224,0.15);--accent-hover:#4a4fc0;--msg-user:#5b5fe0;--msg-assistant:#ffffff;--hover-bg:#f0f0f8;--active-bg:#eeeffa;--active-border:#c8c9f0;--danger:#e05050;--danger-bg:#fceeef;--shadow:0 1px 3px rgba(0,0,0,0.04),0 4px 12px rgba(0,0,0,0.03);--shadow-lg:0 8px 32px rgba(0,0,0,0.06);--radius:12px;--radius-lg:20px}
 @media(prefers-color-scheme:dark){
-body{background:#1a1d27;--bg:#1a1d27;--surface:#222535;--border:#2e3147;--text:#e4e6f0;--text2:#9098b8;--accent:#5c6ef0;--accent-hover:#6e7ef8;--msg-user:#5c6ef0;--msg-assistant:#1a1d27;--hover-bg:#222535;--active-bg:#1a2d5c;--active-border:#5c6ef0;--danger:#f87171;--danger-bg:#2e3147}
+body{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22223a;--border:#2a2a42;--text:#e8e8f4;--text2:#6a6a88;--accent:#7c7ff0;--accent-glow:rgba(124,127,240,0.15);--accent-hover:#8c8ff8;--msg-user:#7c7ff0;--msg-assistant:#1a1a28;--hover-bg:#22223a;--active-bg:#1e1e38;--active-border:#3a3a5a;--danger:#f06060;--danger-bg:#2a1a1a;--shadow:0 1px 3px rgba(0,0,0,0.2),0 4px 12px rgba(0,0,0,0.15);--shadow-lg:0 8px 32px rgba(0,0,0,0.25);--radius:12px;--radius-lg:20px}
 }
-body.dark{background:#1a1d27;--bg:#1a1d27;--surface:#222535;--border:#2e3147;--text:#e4e6f0;--text2:#9098b8;--accent:#5c6ef0;--accent-hover:#6e7ef8;--msg-user:#5c6ef0;--msg-assistant:#1a1d27;--hover-bg:#222535;--active-bg:#1a2d5c;--active-border:#5c6ef0;--danger:#f87171;--danger-bg:#2e3147}
-.sidebar{width:260px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
-.sidebar h2{padding:18px 16px;font-size:16px;color:var(--text);border-bottom:1px solid var(--border)}
-#session-list{flex:1;overflow-y:auto;padding:6px 8px}
-.si{padding:12px 14px;border-radius:10px;cursor:pointer;margin-bottom:4px;border:1px solid transparent;transition:all .15s;position:relative}
+body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22223a;--border:#2a2a42;--text:#e8e8f4;--text2:#6a6a88;--accent:#7c7ff0;--accent-glow:rgba(124,127,240,0.15);--accent-hover:#8c8ff8;--msg-user:#7c7ff0;--msg-assistant:#1a1a28;--hover-bg:#22223a;--active-bg:#1e1e38;--active-border:#3a3a5a;--danger:#f06060;--danger-bg:#2a1a1a;--shadow:0 1px 3px rgba(0,0,0,0.2),0 4px 12px rgba(0,0,0,0.15);--shadow-lg:0 8px 32px rgba(0,0,0,0.25)}
+.sidebar{width:280px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.sidebar-header{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
+.sidebar-header h2{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-0.3px;display:flex;align-items:center;gap:8px}
+.sidebar-header h2 span{background:var(--accent);color:#fff;font-size:9px;padding:2px 8px;border-radius:20px;font-weight:600;letter-spacing:0.3px}
+#themeToggle{cursor:pointer;font-size:15px;opacity:0.5;transition:opacity .2s;margin-left:auto}
+#themeToggle:hover{opacity:1}
+.btn-new{display:flex;align-items:center;justify-content:center;gap:6px;margin:12px 20px 6px;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;transition:all .2s ease}
+.btn-new:hover{background:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-lg)}
+#session-list{flex:1;overflow-y:auto;padding:4px 12px}
+.si{padding:10px 14px;border-radius:var(--radius);cursor:pointer;margin-bottom:2px;border:1px solid transparent;transition:all .15s ease;position:relative}
 .si:hover{background:var(--hover-bg);border-color:var(--border)}
 .si.active{background:var(--active-bg);border-color:var(--active-border);font-weight:600}
-.si .title{font-size:14px;color:var(--text);padding-right:55px}
-.si .meta{font-size:11px;color:var(--text2);margin-top:3px}
-.si .badge{background:var(--active-bg);color:var(--accent);border-radius:10px;padding:1px 8px;font-size:11px}
-.si .btn-group{position:absolute;top:8px;right:8px;display:none;gap:2px}
-.si:hover .btn-group{display:flex}
-.si .btn-group button{width:24px;height:24px;border:none;border-radius:6px;cursor:pointer;font-size:12px;line-height:24px;text-align:center;padding:0}
-.si .btn-rename{background:#e8f0fe;color:var(--accent)}.si .btn-rename:hover{background:#bbdefb}
-.si .btn-delete{background:var(--danger-bg);color:var(--danger)}.si .btn-delete:hover{background:#f8bbd0}
-.btn-new{display:block;margin:8px 8px 4px;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:500;text-align:center}
-.btn-new:hover{background:var(--accent-hover)}
-.btn-upload{display:block;margin:4px 8px 8px;padding:8px;background:var(--bg);color:var(--text);border:1px dashed var(--border);border-radius:10px;cursor:pointer;font-size:12px;text-align:center;position:relative}
-.btn-upload:hover{background:var(--hover-bg);border-color:var(--accent)}
+.si .title{font-size:13px;color:var(--text);padding-right:50px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.si .meta{font-size:11px;color:var(--text2);margin-top:2px;display:flex;align-items:center;gap:6px}
+.si .badge{font-size:10px;background:var(--active-bg);color:var(--accent);padding:1px 6px;border-radius:6px}
+.si .btn-group{position:absolute;top:8px;right:8px;display:flex;gap:2px;opacity:0;transition:opacity .15s}
+.si:hover .btn-group{opacity:1}
+.si .btn-group button{width:22px;height:22px;border:none;border-radius:6px;cursor:pointer;font-size:10px;line-height:22px;text-align:center;padding:0;transition:all .15s}
+.si .btn-rename{background:var(--bg);color:var(--text2)}.si .btn-rename:hover{background:var(--active-bg);color:var(--accent)}
+.si .btn-delete{background:var(--bg);color:var(--text2)}.si .btn-delete:hover{background:var(--danger-bg);color:var(--danger)}
+.btn-upload{display:flex;align-items:center;justify-content:center;gap:6px;margin:4px 20px 12px;padding:8px;background:var(--bg);color:var(--text2);border:1.5px dashed var(--border);border-radius:var(--radius);cursor:pointer;font-size:12px;font-family:inherit;transition:all .2s ease;position:relative}
+.btn-upload:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-glow)}
 .btn-upload input{position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer}
-.attach-list{padding:4px 12px 8px;font-size:11px;color:var(--text2);border-bottom:1px solid var(--border);display:none}
-.attach-list .item{padding:2px 0;display:flex;justify-content:space-between}
-.attach-list .item .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px}
-.main{flex:1;display:flex;flex-direction:column;background:var(--surface)}
-#messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
-.msg{max-width:75%;padding:12px 18px;border-radius:14px;font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+
+.main{flex:1;display:flex;flex-direction:column;background:var(--bg)}
+#messages{flex:1;overflow-y:auto;padding:24px 32px;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:72%;padding:14px 20px;border-radius:16px;font-size:14px;line-height:1.65;white-space:pre-wrap;word-break:break-word;animation:msgIn .3s ease}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .msg.user{align-self:flex-end;background:var(--msg-user);color:#fff;border-bottom-right-radius:4px}
-.msg.assistant{align-self:flex-start;background:var(--msg-assistant);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:4px}
-.placeholder{text-align:center;color:var(--text2);margin-top:60px;font-size:14px;line-height:2}
-.input-area{display:flex;padding:16px 20px;background:var(--surface);border-top:1px solid var(--border);gap:10px;position:relative}
-.input-area input{flex:1;padding:12px 18px;border:1px solid var(--border);border-radius:24px;outline:none;font-size:14px;background:var(--bg);color:var(--text)}
-.input-area input:focus{border-color:var(--accent)}
-.input-area button{padding:12px 24px;background:var(--accent);color:#fff;border:none;border-radius:24px;cursor:pointer;font-size:14px;font-weight:500}
-.input-area button:disabled{background:#ccc;cursor:not-allowed}
-.waiting{display:none;text-align:center;padding:10px;color:var(--text2);font-size:13px}
-.approval-card{background:#fff8e1;border:1px solid #ffe082;border-radius:12px;padding:14px 18px;margin:12px 0;align-self:center;min-width:300px;max-width:90%}
-.approval-card h4{color:#f57f17;font-size:14px;margin-bottom:8px}
-.approval-card .detail{font-size:13px;color:#555;margin-bottom:10px}
+.msg.assistant{align-self:flex-start;background:var(--msg-assistant);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:4px;box-shadow:var(--shadow)}
+.msg.tool{align-self:center;background:var(--surface-raised);border:1px solid var(--border);color:var(--text2);font-size:12px;border-radius:var(--radius);max-width:90%}
+.placeholder{text-align:center;color:var(--text2);margin-top:80px;font-size:14px;line-height:2}
+
+/* Attachment bar — moved above input */
+.attach-bar{display:none;padding:10px 24px 0 24px;gap:8px;flex-wrap:wrap}
+.attach-bar.show{display:flex}
+.attach-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 10px 5px 12px;background:var(--surface);border:1px solid var(--border);border-radius:20px;font-size:11px;color:var(--text);box-shadow:var(--shadow);transition:all .2s}
+.attach-chip .name{max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.attach-chip .size{color:var(--text2);font-size:10px}
+.attach-chip .del-attach{cursor:pointer;color:var(--text2);font-size:12px;line-height:1;margin-left:2px;transition:color .15s}
+.attach-chip .del-attach:hover{color:var(--danger)}
+
+.input-area{display:flex;padding:12px 24px 20px;background:var(--bg);gap:8px}
+.input-area input{flex:1;padding:12px 20px;border:1.5px solid var(--border);border-radius:var(--radius-lg);outline:none;font-size:14px;background:var(--surface);color:var(--text);font-family:inherit;transition:all .2s ease;box-shadow:var(--shadow)}
+.input-area input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+.input-area input:disabled{opacity:0.5}
+.input-area button{display:flex;align-items:center;gap:6px;padding:12px 24px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-lg);cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;transition:all .2s ease;box-shadow:var(--shadow)}
+.input-area button:hover:not(:disabled){background:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-lg)}
+.input-area button:disabled{opacity:0.4;cursor:not-allowed}
+.waiting{display:none;text-align:center;padding:6px;color:var(--text2);font-size:12px;letter-spacing:0.3px}
+
+.approval-card{background:var(--surface);border:1px solid var(--accent);border-radius:var(--radius-lg);padding:16px 20px;margin:8px auto;align-self:center;min-width:300px;max-width:90%;box-shadow:var(--shadow-lg)}
+.approval-card h4{color:var(--accent);font-size:13px;margin-bottom:8px;font-weight:600}
+.approval-card .detail{font-size:12px;color:var(--text2);margin-bottom:12px}
 .approval-card .btns{display:flex;gap:8px;justify-content:center}
-.approval-card .btns button{padding:8px 20px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500}
+.approval-card .btns button{padding:8px 20px;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .15s}
 .approval-card .btn-ok{background:#43a047;color:#fff}.approval-card .btn-ok:hover{background:#388e3c}
 .approval-card .btn-no{background:#e53935;color:#fff}.approval-card .btn-no:hover{background:#c62828}
-.msg.tool{align-self:flex-start;background:#fff8e1;border:1px solid #ffe082;color:#f57f17;font-size:12px;font-family:monospace;border-radius:8px}
-.tool-card .tool-name{font-weight:600;color:var(--accent)}
-.tool-card .tool-args{font-family:monospace;color:#666;margin-top:4px;white-space:pre-wrap;font-size:12px}
-.tool-card .tool-result{background:#e8f5e9;color:#2e7d32}.tool-card .tool-error{background:#ffebee;color:#c62828}
-.cmd-menu{position:absolute;bottom:100%;left:20px;right:20px;background:var(--surface);border:1px solid var(--border);border-radius:12px 12px 0 0;box-shadow:0 -4px 12px rgba(0,0,0,0.1);max-height:240px;overflow-y:auto;display:none;z-index:100}
-.cmd-menu.show{display:block}
-.cmd-item{padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
-.cmd-item:last-child{border-bottom:none}
-.cmd-item:hover,.cmd-item.active{background:var(--active-bg)}
-.cmd-item .cmd{color:var(--accent);font-weight:600;font-family:monospace}
-.cmd-item .desc{color:var(--text2);font-size:12px}
-.notification-area{display:none;padding:8px 12px;background:#fff8e1;border-bottom:1px solid #ffe082;font-size:12px;color:#f57f17}
-.notification-area #notifications{font-size:12px}
+.notification-area{display:none;padding:8px 16px;background:var(--active-bg);border-bottom:1px solid var(--active-border);font-size:12px;color:var(--accent)}
 </style>
 </head>
 <body>
 <div class=sidebar>
-<h2>SJTUClaw <span id="themeToggle" style="cursor:pointer;font-size:14px;float:right;margin-right:4px" title="Toggle dark/light mode">🌙</span></h2>
-<button class=btn-new id=btnNew>+ New Session</button>
+<div class=sidebar-header>
+<h2>SJTUClaw<span>v2</span><span id="themeToggle" title="Toggle theme">🌙</span></h2>
+</div>
+<button class=btn-new id=btnNew><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>New Session</button>
 <div id=session-list></div>
 <label class="btn-upload" id="btnUpload">📎 Attach File<input type="file" id="fileInput"></label>
-<div class="attach-list" id="attachList"></div>
 </div>
 <div class=main>
 <div class="notification-area" id="notification-area"><div id="notifications"></div></div>
 <div id=messages><div class=placeholder>Select a session to start chatting</div></div>
 <div class="waiting" id="waiting">Claw is thinking...</div>
+<div class="attach-bar" id="attachBar"></div>
 <div class=input-area>
 <input id=input placeholder="Type a message..." disabled>
-<button id=btnSend disabled>Send</button>
-<div class="cmd-menu" id="cmdMenu"></div>
+<button id=btnSend disabled>
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7L13 1L7 13L5 9L1 7Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  Send
+</button>
 </div>
 </div>
 <script>
@@ -117,28 +128,20 @@ function load(filter) {
         '<div class="title">' + esc(s.title) + '</div>' +
         '<div class="meta">' + t + ' <span class="badge">' + s.message_count + ' msgs</span></div>' +
         '<div class="btn-group">' +
-        '<button class="btn-rename">&#9998;</button>' +
-        '<button class="btn-delete">&#10006;</button>' +
+        '<button class="btn-rename">✎</button>' +
+        '<button class="btn-delete">✕</button>' +
         '</div>' +
         '</div>';
     }
-    var el = document.getElementById('session-list');
-    el.innerHTML = h;
+    document.getElementById('session-list').innerHTML = h;
   }).catch(function(){});
 }
 
-// 事件委托：在 #session-list 上只绑一次，处理所有 .si 的点击
 document.getElementById('session-list').addEventListener('click', function(e) {
   var si = e.target.closest('.si');
   if (!si) return;
-  if (e.target.closest('.btn-rename')) {
-    doRename(si.getAttribute('data-id'));
-    return;
-  }
-  if (e.target.closest('.btn-delete')) {
-    doDelete(si.getAttribute('data-id'));
-    return;
-  }
+  if (e.target.closest('.btn-rename')) { doRename(si.getAttribute('data-id')); return; }
+  if (e.target.closest('.btn-delete')) { doDelete(si.getAttribute('data-id')); return; }
   switchTo(si.getAttribute('data-id'));
 });
 
@@ -148,7 +151,7 @@ function switchTo(id) {
   document.getElementById('btnSend').disabled = false;
   document.getElementById('input').focus();
   var el = document.getElementById('messages');
-  el.innerHTML = '<div style="text-align:center;color:#999;margin:40px">Loading...</div>';
+  el.innerHTML = '<div style="text-align:center;color:var(--text2);margin:40px">Loading...</div>';
   api('/api/sessions/' + id).then(function(s){
     var h = '';
     for (var i = 0; i < s.messages.length; i++) {
@@ -158,41 +161,27 @@ function switchTo(id) {
     el.innerHTML = h || '<div class="placeholder">No messages yet</div>';
     el.scrollTop = el.scrollHeight;
     loadAttachments(id);
-    // Apply saved theme
-  var savedTheme = localStorage.getItem('theme');
-  if (savedTheme === 'dark') {
-    document.body.classList.add('dark');
-    document.getElementById('themeToggle').textContent = '☀️';
-  }
-  load();
+    var savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') { document.body.classList.add('dark'); document.getElementById('themeToggle').textContent = '☀️'; }
+    load();
   }).catch(function(){});
 }
 
 function newSession() {
-  api('/api/sessions', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'}).then(function(s){
-    switchTo(s.session_id);
-  }).catch(function(){});
+  api('/api/sessions', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'}).then(function(s){ switchTo(s.session_id); }).catch(function(){});
 }
 
 function doRename(id) {
   var name = prompt('Rename ' + id + ':');
   if (name && name.trim()) {
-    api('/api/sessions/' + id + '/rename', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({title:name.trim()})}).then(function(){
-      load();
-      if (cur === id) switchTo(id);
-    }).catch(function(){});
+    api('/api/sessions/' + id + '/rename', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({title:name.trim()})}).then(function(){ load(); if (cur === id) switchTo(id); }).catch(function(){});
   }
 }
 
 function doDelete(id) {
   if (!confirm('Delete session ' + id + '?')) return;
   api('/api/sessions/' + id, {method:'DELETE'}).then(function(){
-    if (cur === id) {
-      cur = null;
-      document.getElementById('messages').innerHTML = '<div class="placeholder">Select a session</div>';
-      document.getElementById('input').disabled = true;
-      document.getElementById('btnSend').disabled = true;
-    }
+    if (cur === id) { cur = null; document.getElementById('messages').innerHTML = '<div class="placeholder">Select a session</div>'; document.getElementById('input').disabled = true; document.getElementById('btnSend').disabled = true; }
     load();
   }).catch(function(){});
 }
@@ -201,102 +190,93 @@ function send() {
   var btn = document.getElementById('btnSend');
   var input = document.getElementById('input');
   var t = input.value.trim();
-  if (!t || !cur) return;
-  input.value = '';
-  btn.disabled = true;
-  input.disabled = true;
-  btn.textContent = '...';
-  document.getElementById('waiting').style.display = 'block';
-  var el = document.getElementById('messages');
-  el.innerHTML += '<div class="msg user">' + esc(t) + '</div>';
-
-  // 收集当前 session 的附件列表，一起发给后端
+  // 先查有没有附件
   fetch('/api/sessions/' + cur + '/attachments').then(function(r){return r.json()}).then(function(attachments){
+    var hasAttachments = attachments.length > 0;
+    if (!t && !hasAttachments) { input.focus(); return; }
+    if (!cur) return;
+    input.value = '';
+    btn.disabled = true; input.disabled = true;
+    btn.textContent = '...';
+    document.getElementById('waiting').style.display = 'block';
+    var el = document.getElementById('messages');
+    if (t) el.innerHTML += '<div class="msg user">' + esc(t) + '</div>';
+
     var body = {content: t};
-    if (attachments.length > 0) {
-      body.attachments = attachments.map(function(f){ return f.filename; });
-      el.innerHTML += '<div class="msg tool">📎 attached: ' + attachments.map(function(f){return f.filename;}).join(', ') + '</div>';
-    }
+    if (hasAttachments) body.attachments = attachments.map(function(f){ return f.filename; });
     api('/api/sessions/' + cur + '/messages', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}).then(function(r){
       el.innerHTML += '<div class="msg assistant">' + esc(r.reply) + '</div>';
       el.scrollTop = el.scrollHeight;
       load();
     }).catch(function(e){
-      el.innerHTML += '<div class="msg assistant" style="color:#d32f2f">[Error] ' + esc(e.message) + '</div>';
+      el.innerHTML += '<div class="msg assistant" style="color:var(--danger)">[Error] ' + esc(e.message) + '</div>';
     }).finally(function(){
-      btn.disabled = false;
-      input.disabled = false;
-      btn.textContent = 'Send';
+      btn.disabled = false; input.disabled = false;
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7L13 1L7 13L5 9L1 7Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Send';
       input.focus();
       document.getElementById('waiting').style.display = 'none';
     });
   }).catch(function(){
     // Fallback: send without attachments
+    if (!t) { /* nothing to send */ resetSend(btn, input); return; }
     api('/api/sessions/' + cur + '/messages', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content: t})}).then(function(r){
       el.innerHTML += '<div class="msg assistant">' + esc(r.reply) + '</div>';
       el.scrollTop = el.scrollHeight;
       load();
     }).catch(function(e){
-      el.innerHTML += '<div class="msg assistant" style="color:#d32f2f">[Error] ' + esc(e.message) + '</div>';
-    }).finally(function(){
-      btn.disabled = false;
-      input.disabled = false;
-      btn.textContent = 'Send';
-      input.focus();
-      document.getElementById('waiting').style.display = 'none';
-    });
+      el.innerHTML += '<div class="msg assistant" style="color:var(--danger)">[Error] ' + esc(e.message) + '</div>';
+    }).finally(function(){ resetSend(btn, input); });
   });
+}
+
+function resetSend(btn, input) {
+  btn.disabled = false; input.disabled = false;
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7L13 1L7 13L5 9L1 7Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Send';
+  input.focus();
+  document.getElementById('waiting').style.display = 'none';
 }
 
 document.addEventListener('DOMContentLoaded', function(){
   document.getElementById('btnNew').addEventListener('click', newSession);
   document.getElementById('btnSend').addEventListener('click', send);
-  document.getElementById('input').addEventListener('keydown', function(e){
-    if (e.key === 'Enter') send();
-  });
-  // Theme toggle (bind once)
+  document.getElementById('input').addEventListener('keydown', function(e){ if (e.key === 'Enter') send(); });
   document.getElementById('themeToggle').addEventListener('click', function() {
     document.body.classList.toggle('dark');
     var isDark = document.body.classList.contains('dark');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
     this.textContent = isDark ? '☀️' : '🌙';
   });
-  // File upload — multipart/form-data
   document.getElementById('fileInput').addEventListener('change', function(e) {
     var file = e.target.files[0];
     if (!file || !cur) return;
-    var fd = new FormData();
-    fd.append('file', file);
-    fetch('/api/sessions/' + cur + '/attachments', {
-      method: 'POST',
-      body: fd
-    }).then(function(r){return r.json()}).then(function(d){
-      loadAttachments(cur);
-    }).catch(function(){});
+    var fd = new FormData(); fd.append('file', file);
+    fetch('/api/sessions/' + cur + '/attachments', {method:'POST', body:fd}).then(function(r){return r.json()}).then(function(d){ loadAttachments(cur); }).catch(function(){});
     e.target.value = '';
   });
   load();
 });
 
 function loadAttachments(sid) {
-  if (!sid) { document.getElementById('attachList').style.display = 'none'; return; }
+  var bar = document.getElementById('attachBar');
+  if (!sid) { bar.classList.remove('show'); return; }
   fetch('/api/sessions/' + sid + '/attachments').then(function(r){return r.json()}).then(function(items){
-    var el = document.getElementById('attachList');
-    if (!items.length) { el.style.display = 'none'; return; }
-    el.style.display = 'block';
-    el.innerHTML = items.map(function(f){
+    if (!items.length) { bar.classList.remove('show'); return; }
+    bar.classList.add('show');
+    bar.innerHTML = items.map(function(f){
       var icon = fileIcon(f.original_name || f.filename);
       var sizeStr = f.size > 1024 ? (f.size/1024).toFixed(1)+'KB' : f.size+'B';
-      return '<div class="item"><span class="name">' + icon + ' ' + esc(f.original_name || f.filename) + '</span><span>' + sizeStr + '</span> <span class="del-attach" data-f="' + f.filename + '" style="cursor:pointer;color:var(--danger);font-size:12px">✕</span></div>';
+      return '<span class="attach-chip">' + icon + ' <span class="name">' + esc(f.original_name || f.filename) + '</span> <span class="size">' + sizeStr + '</span> <span class="del-attach" data-f="' + f.filename + '">✕</span></span>';
     }).join('');
-    // 绑定删除点击
-    el.querySelectorAll('.del-attach').forEach(function(btn){
-      btn.onclick = function(){
+    bar.querySelectorAll('.del-attach').forEach(function(btn){
+      btn.onclick = function(e){
+        e.stopPropagation();
         var fname = this.getAttribute('data-f');
-        if (!confirm('Delete attachment ' + fname + '?')) return;
-        fetch('/api/sessions/' + sid + '/attachments/' + fname, {method:'DELETE'}).then(function(){
+        if (!confirm('Delete attachment?')) return;
+        var url = '/api/sessions/' + encodeURIComponent(sid) + '/attachments/' + encodeURIComponent(fname);
+        fetch(url, {method:'DELETE'}).then(function(r){ return r.json(); }).then(function(d){
+          if (d.error) { alert('Delete failed: ' + d.error); return; }
           loadAttachments(sid);
-        }).catch(function(){});
+        }).catch(function(e){ alert('Delete error: ' + e.message); });
       };
     });
   }).catch(function(){});
@@ -306,8 +286,8 @@ function fileIcon(filename) {
   var ext = filename.split('.').pop().toLowerCase();
   var icons = {txt:'📄',md:'📝',py:'🐍',js:'🟨',ts:'🔷',html:'🌐',css:'🎨',json:'📋',xml:'📐',csv:'📊',
                png:'🖼️',jpg:'🖼️',jpeg:'🖼️',gif:'🖼️',svg:'🎨',pdf:'📕',doc:'📘',docx:'📘',
-               xls:'📗',xlsx:'📗',zip:'📦',tar:'📦',gz:'📦',sh:'⚡',bat:'⚡',ps1:'⚡',
-               c:'⚙️',cpp:'⚙️',h:'⚙️',java:'☕',yaml:'⚙️',yml:'⚙️',toml:'⚙️'};
+               xls:'📗',xlsx:'📗',zip:'📦',tar:'📦',gz:'📦',sh:'⚡',bat:'⚡',c:'⚙️',cpp:'⚙️',
+               java:'☕',yaml:'⚙️',yml:'⚙️',toml:'⚙️'};
   return icons[ext] || '📎';
 }
 </script>
