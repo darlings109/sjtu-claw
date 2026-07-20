@@ -295,8 +295,35 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                     return self._json({"status": "rejected" if do_reject(aid) else "not found"})
             return self._json({"error": "invalid approval path"}, 400)
 
+        # POST /api/skills/<name>/run — invoke a skill
+        if path.startswith('/api/skills/') and path.endswith('/run'):
+            from src.skill_registry import load_skill
+            skill_name = path.split('/api/skills/')[1].split('/')[0]
+            body = self._read_json()
+            task = body.get('task', '').strip()
+            sid = body.get('session_id', '')
+            if not sid:
+                return self._json({"error": "session_id required"}, 400)
+            skill_content = load_skill(skill_name)
+            if skill_content is None:
+                return self._json({"error": f"skill not found: {skill_name}"}, 404)
+            from urllib.parse import unquote
+            skill_name = unquote(skill_name)
+            session = load_session(sid)
+            if session is None:
+                return self._json({"error": "session not found"}, 404)
+            # Inject skill content into prompt (same logic as CLI handle_skill_command)
+            enhanced = "[Using skill: " + skill_name + "]\n\n" + skill_content
+            if task:
+                enhanced += "\n\n---\n\nUser task: " + task
+            try:
+                reply = process_and_compact(_config, session, enhanced)
+                return self._json({"reply": reply, "session_id": session.session_id})
+            except Exception as e:
+                return self._json({"reply": f"[Error] {str(e)[:200]}", "session_id": session.session_id})
+
         # Extract session_id from path for session-scoped routes
-        if not path.startswith('/api/sessions/'):
+        if not path.startswith('/api/sessions/') and not path.startswith('/api/skills/'):
             return self._json({"error": "not found"}, 404)
 
         sid = path.split('/api/sessions/')[1].split('/')[0]
