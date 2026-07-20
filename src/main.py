@@ -4,6 +4,7 @@
     python -m src.main
 """
 
+import json
 import re
 import sys
 
@@ -246,7 +247,6 @@ def main() -> None:
 
         # scheduler 命令
         if re.match(r"^/task", user_input):
-            from src.main import handle_task_command
             handle_task_command(config, current, user_input)
             print()
             continue
@@ -276,8 +276,7 @@ def main() -> None:
 
 def handle_skill_command(config, session: Session, raw_input: str) -> Session:
     """处理 /skill 命令"""
-    import re as _re
-    cleaned = _re.sub(r"^/\w+", "", raw_input.strip()).strip()
+    cleaned = re.sub(r"^/\w+", "", raw_input.strip()).strip()
     parts = cleaned.split(maxsplit=1)
 
     from src.skill_registry import scan_skills, load_skill
@@ -346,8 +345,7 @@ def handle_skill_command(config, session: Session, raw_input: str) -> Session:
 
 def handle_workspace_command(session: Session, raw_input: str) -> Session:
     """处理 /workspace 和 /approve /reject 命令"""
-    import re as _re
-    cleaned = _re.sub(r"^/\w+", "", raw_input.strip()).strip()
+    cleaned = re.sub(r"^/\w+", "", raw_input.strip()).strip()
     parts = cleaned.split()
 
     # /workspace
@@ -397,9 +395,7 @@ def handle_workspace_command(session: Session, raw_input: str) -> Session:
 
 def handle_task_command(config, session, raw_input: str) -> None:
     """处理 /task 命令"""
-    import re as _re
-    cleaned = _re.sub(r"^/\w+", "", raw_input.strip()).strip()
-    from src.main import _parse_command_args
+    cleaned = re.sub(r"^/\w+", "", raw_input.strip()).strip()
     parts = _parse_command_args(cleaned)
     if not parts:
         print("用法: /task new <content> <time> [repeat] | list | cancel <id>")

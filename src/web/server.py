@@ -5,9 +5,12 @@ SJTUClaw Gateway — HTTP Server
 """
 
 import json
+import mimetypes
 import os
+import re
 import sys
 import threading
+import uuid
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
@@ -23,6 +26,86 @@ from src.session_store import list_sessions, load_session, create_session, delet
 _config = None
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 ATTACHMENTS_DIR = Path("data") / "attachments"
+
+
+def _parse_multipart(body: bytes, content_type: str):
+    """解析 multipart/form-data，提取文件名和文件内容
+
+    Returns:
+        (filename, data) 或 (None, None) 如果解析失败
+    """
+    match = re.search(r'boundary=(.+)', content_type)
+    if not match:
+        return None, None
+    boundary = match.group(1).strip().strip('"')
+
+    # 按 boundary 分割
+    delimiter = b'--' + boundary.encode()
+    parts = body.split(delimiter)
+
+    for part in parts:
+        if b'Content-Disposition' not in part:
+            continue
+        # 提取文件名
+        name_match = re.search(r'filename="([^"]*)"', part.decode('utf-8', errors='replace'))
+        if not name_match:
+            continue
+        filename = name_match.group(1)
+        if not filename:
+            continue
+        # 提取文件内容（找到两个换行之后的数据）
+        header_end = part.find(b'\r\n\r\n')
+        if header_end == -1:
+            continue
+        file_data = part[header_end + 4:]
+        # 去掉末尾的换行
+        file_data = file_data.rstrip(b'\r\n')
+        return filename, file_data
+    return None, None
+
+
+def _read_attachment_content(session_id: str, filename_key: str, max_chars: int = 60000) -> str:
+    """读取附件内容为文本
+
+    Args:
+        session_id: 会话 ID
+        filename_key: 文件名（含 uuid 后缀的存储名）
+        max_chars: 最大读取字符数
+
+    Returns:
+        文件内容文本，二进制文件返回提示
+    """
+    file_path = ATTACHMENTS_DIR / session_id / filename_key
+    if not file_path.exists():
+        return f"(file not found: {filename_key})"
+
+    # 判断是否为文本文件
+    text_exts = {'.txt', '.md', '.json', '.py', '.js', '.html', '.css', '.xml', '.yaml', '.yml',
+                 '.csv', '.ini', '.cfg', '.conf', '.log', '.sh', '.bat', '.ps1', '.env',
+                 '.toml', '.sql', '.java', '.ts', '.tsx', '.jsx', '.c', '.cpp', '.h', '.hpp'}
+    ext = file_path.suffix.lower()
+
+    if ext not in text_exts and not _is_probably_text(file_path):
+        return f"(binary file: {filename_key}, {file_path.stat().st_size} bytes)"
+
+    try:
+        text = file_path.read_text(encoding='utf-8', errors='replace')
+        if len(text) > max_chars:
+            text = text[:max_chars] + f"\n... (truncated, {len(text)} total chars)"
+        return text
+    except Exception as e:
+        return f"(error reading file: {e})"
+
+
+def _is_probably_text(path: Path) -> bool:
+    """快速判断文件是否可能是文本文件（读取前 1024 字节）"""
+    try:
+        with open(path, 'rb') as f:
+            chunk = f.read(1024)
+        # 检查是否有空字节
+        return b'\x00' not in chunk
+    except Exception:
+        return False
 
 class GatewayHandler(SimpleHTTPRequestHandler):
 
@@ -111,7 +194,10 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             items = []
             for f in attach_dir.iterdir():
                 if f.is_file():
-                    items.append({"filename": f.name, "size": f.stat().st_size})
+                    # 从 原始名_uuid8.ext 还原原始名
+                    fname = f.name
+                    original = re.sub(r'_[a-f0-9]{8}(\.[^.]+)$', r'\1', fname)
+                    items.append({"filename": fname, "original_name": original, "size": f.stat().st_size})
             return self._json(items)
 
         # Session detail
@@ -145,6 +231,15 @@ class GatewayHandler(SimpleHTTPRequestHandler):
         # DELETE /api/sessions/<id>
         if path.startswith('/api/sessions/'):
             sid = path.split('/api/sessions/')[1].split('/')[0]
+            # DELETE /api/sessions/<id>/attachments/<filename>
+            if '/attachments/' in path:
+                filename = path.split('/attachments/')[1].split('/')[0]
+                file_path = ATTACHMENTS_DIR / sid / filename
+                if not file_path.exists():
+                    return self._json({"error": "not found"}, 404)
+                file_path.unlink()
+                return self._json({"status": "deleted", "filename": filename})
+            # DELETE /api/sessions/<id>
             if delete_session(sid):
                 return self._json({"status": "deleted", "session_id": sid})
             else:
@@ -213,18 +308,33 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                 return self._json({"status": "renamed", "session_id": sid, "title": title})
             return self._json({"error": "title required"}, 400)
 
-        # POST .../attachments — upload file
+        # POST .../attachments — upload file (multipart/form-data)
         if '/attachments' in path and not '/messages' in path:
+            content_type = self.headers.get('Content-Type', '')
             content_length = int(self.headers.get('Content-Length', 0))
             if content_length == 0:
                 return self._json({"error": "no data"}, 400)
             body = self.rfile.read(content_length)
-            import uuid
+
+            filename, file_data = _parse_multipart(body, content_type)
+            if filename is None:
+                # 兼容旧格式：纯 binary body，用 UUID 命名
+                file_data = body
+                safe_name = uuid.uuid4().hex
+            else:
+                # 保留原始文件名，加 uuid 短尾防重
+                stem, ext = os.path.splitext(filename)
+                safe_name = f"{stem}_{uuid.uuid4().hex[:8]}{ext}"
+
             attach_dir = ATTACHMENTS_DIR / sid
             attach_dir.mkdir(parents=True, exist_ok=True)
-            filename = uuid.uuid4().hex
-            (attach_dir / filename).write_bytes(body)
-            return self._json({"filename": filename, "size": len(body), "path": f"{sid}/{filename}"}, 201)
+            (attach_dir / safe_name).write_bytes(file_data)
+            return self._json({
+                "filename": safe_name,
+                "original_name": filename or safe_name,
+                "size": len(file_data),
+                "path": f"{sid}/{safe_name}",
+            }, 201)
 
         # POST .../messages/stream — SSE streaming
         if '/messages/stream' in path:
@@ -263,6 +373,15 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             content = body.get('content', '').strip()
             if not content:
                 return self._json({"error": "content required"}, 400)
+            # 将附件列表注入到消息中，让 model 知道
+            attachments = body.get('attachments', [])
+            if attachments:
+                parts = ["[The user has attached the following files — content is already provided below, no need to read them again:]"]
+                for fname in attachments:
+                    file_content = _read_attachment_content(sid, fname)
+                    parts.append(f"--- {fname} ---\n{file_content}")
+                attach_info = "\n".join(parts)
+                content = attach_info + "\n\n" + content
             try:
                 reply = process_and_compact(_config, session, content)
                 return self._json({"reply": reply, "session_id": session.session_id})

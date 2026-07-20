@@ -4,16 +4,8 @@
 """
 
 import json
-from typing import Dict, List
 
-from src.compactor import (
-    KEEP_RECENT_ROUNDS,
-    _collect_recent,
-    compact_history,
-    reactive_compact,
-    should_compact,
-    run_pipeline,
-)
+from src.compactor import KEEP_RECENT_ROUNDS, _collect_recent, compact_history, reactive_compact, should_compact, run_pipeline
 from src.config import LLMConfig
 from src.context_builder import build_context
 from src.llm_client import chat_completion
@@ -81,7 +73,7 @@ def process_message(
     # 自动提取记忆（失败不影响主流程）
     try:
         extract_memories(config, session.messages)
-        consolidate_memories(config)
+        consolidate_memories()
     except Exception:
         pass
 
