@@ -186,7 +186,7 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 <body>
 <div class=sidebar>
 <div class=sidebar-header>
-<h2>SJTUClaw<span>v2</span><span id="themeToggle" title="Toggle theme">🌙</span></h2>
+<h2>SJTUClaw<span>v2</span><span id="themeToggle" title="Toggle theme">🌙</span><span id="settingsToggle" title="Settings" style="cursor:pointer;font-size:14px;opacity:0.4;margin-left:6px;transition:opacity .2s">⚙️</span></h2>
 </div>
 <button class=btn-new id=btnNew><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>New Session</button>
 <button class=skill-btn id=btnSkills>🧠 Skills</button>
@@ -201,7 +201,7 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 <div class="task-overlay" id="taskOverlay"><div class="task-box" id="taskBox"></div></div>
 <div class=main>
 <div class="notification-area" id="notification-area"><div id="notifications"></div></div>
-<div id=messages><div class=placeholder>Select a session to start chatting<br><span style=font-size:11px;color:var(--text2)>Ctrl+N 新对话 · Ctrl+R 刷新 · Ctrl+D 删除</span></div></div>
+<div id=messages><div class=placeholder>Select a session to start chatting<br><span style=font-size:11px;color:var(--text2)>Ctrl+R 刷新 · Ctrl+D 删除</span></div></div>
 <div class="waiting" id="waiting">Claw is thinking...</div>
 <div class="attach-bar" id="attachBar"></div>
 <div class=input-area>
@@ -224,6 +224,92 @@ function saveSeen() {
   try { localStorage.setItem('seen', JSON.stringify(lastSeen)); } catch(e){} 
 }
 loadSeen();
+
+// Settings state
+var settings = {
+  shortcuts: {
+    newSession: { key: 'n', ctrl: true, shift: false, desc: 'New Session' },
+    refreshSession: { key: 'r', ctrl: true, shift: false, desc: 'Refresh Session' },
+    deleteSession: { key: 'd', ctrl: true, shift: false, desc: 'Delete Session' }
+  }
+};
+
+function loadSettings() {
+  try {
+    var saved = JSON.parse(localStorage.getItem('settings') || '{}');
+    if (saved.shortcuts) settings.shortcuts = saved.shortcuts;
+  } catch(e){}
+}
+function saveSettings() {
+  try { localStorage.setItem('settings', JSON.stringify(settings)); } catch(e){}
+}
+loadSettings();
+
+function openSettings() {
+  var overlay = document.getElementById("dialogOverlay");
+  var box = document.getElementById("dialogBox");
+  overlay.classList.add("show");
+  var h = "<h3>⚙️ Settings</h3>";
+  h += "<div style='text-align:left;font-size:13px'>";
+  h += "<p style='font-weight:600;margin:0 0 12px;color:var(--text)'>Keyboard Shortcuts</p>";
+  for (var k in settings.shortcuts) {
+    var s = settings.shortcuts[k];
+    var combo = (s.ctrl ? 'Ctrl+' : '') + (s.shift ? 'Shift+' : '') + s.key.toUpperCase();
+    h += "<div style='display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);gap:8px'>";
+    h += "<span style='color:var(--text2);font-size:12px'>" + esc(s.desc) + "</span>";
+    h += "<input id='sk_" + k + "' value='" + esc(combo) + "' style='width:140px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:monospace;font-size:12px;text-align:center;outline:none' readonly onfocus='this.select()' onkeydown='captureShortcut(event,this,\"" + k + "\")'>";
+    h += "</div>";
+  }
+  h += "<p style='font-size:11px;color:var(--text2);margin:12px 0 0'>Click the input and press your desired key combination</p>";
+  h += "</div>";
+  h += "<div class='dialog-btns' style='margin-top:16px'>";
+  h += "<button class='dialog-btn-ok' onclick='document.getElementById(\"dialogOverlay\").classList.remove(\"show\")'>Done</button>";
+  h += "</div>";
+  box.innerHTML = h;
+  overlay.onclick = function(e){ if (e.target === overlay) overlay.classList.remove("show"); };
+}
+
+function captureShortcut(e, input, keyName) {
+  e.preventDefault();
+  var keys = [];
+  if (e.ctrlKey) keys.push('Ctrl');
+  if (e.shiftKey) keys.push('Shift');
+  if (e.key && e.key !== 'Control' && e.key !== 'Shift') {
+    keys.push(e.key.toUpperCase());
+  }
+  var combo = keys.join('+');
+  if (combo) {
+    input.value = combo;
+    settings.shortcuts[keyName] = {
+      key: e.key.toLowerCase(),
+      ctrl: e.ctrlKey || false,
+      shift: e.shiftKey || false,
+      desc: settings.shortcuts[keyName].desc
+    };
+    saveSettings();
+    applyShortcuts();
+  }
+}
+
+function applyShortcuts() {
+  document.removeEventListener('keydown', shortcutHandler);
+  document.addEventListener('keydown', shortcutHandler);
+}
+
+function shortcutHandler(e) {
+  for (var k in settings.shortcuts) {
+    var s = settings.shortcuts[k];
+    var match = (!s.ctrl || e.ctrlKey) && (!s.shift || e.shiftKey) && e.key.toLowerCase() === s.key;
+    if (!match) continue;
+    if (s.ctrl && !e.ctrlKey) continue;
+    if (s.shift && !e.shiftKey) continue;
+    e.preventDefault();
+    if (k === 'newSession') { newSession(); return; }
+    if (k === 'refreshSession' && cur) { switchTo(cur); return; }
+    if (k === 'deleteSession' && cur) { doDelete(cur); return; }
+  }
+}
+applyShortcuts();
 
 function api(path, opts) {
   return fetch(path, opts).then(function(r){
@@ -570,12 +656,7 @@ document.addEventListener('DOMContentLoaded', function(){
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
     this.textContent = isDark ? '☀️' : '🌙';
   });
-  // Keyboard shortcuts
-  document.addEventListener('keydown', function(e){
-    if (e.ctrlKey && e.key === 'n') { e.preventDefault(); newSession(); }
-    if (e.ctrlKey && e.key === 'r') { e.preventDefault(); if (cur) switchTo(cur); }
-    if (e.ctrlKey && e.key === 'd') { e.preventDefault(); if (cur) doDelete(cur); }
-  });
+  document.getElementById('settingsToggle').addEventListener('click', openSettings);
   document.getElementById('btnSkills').addEventListener('click', openSkills);
   document.getElementById('btnTasks').addEventListener('click', openTasks);
   document.getElementById('btnWorkspace').addEventListener('click', openWorkspace);
