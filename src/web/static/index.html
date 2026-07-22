@@ -111,15 +111,23 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 .skill-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-glow)}
 .skill-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.35);z-index:100;justify-content:center;align-items:center}
 .skill-overlay.show{display:flex}
-.skill-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;min-width:360px;max-width:90%;max-height:80vh;overflow-y:auto;box-shadow:var(--shadow-lg)}
+.skill-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;min-width:420px;max-width:90%;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow-lg)}
 .skill-box h3{font-size:16px;font-weight:600;color:var(--text);margin:0 0 4px}
 .skill-box .sub{font-size:12px;color:var(--text2);margin-bottom:16px}
-.skill-row{padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;cursor:pointer;transition:all .12s}
+.skill-row{padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;transition:all .12s}
 .skill-row:hover{background:var(--active-bg);border-color:var(--accent)}
 .skill-row .sn{font-weight:600;font-size:13px;color:var(--text)}
 .skill-row .sd{font-size:12px;color:var(--text2);margin-top:2px}
+.skill-row .sbtns{display:flex;gap:6px;margin-top:6px}
+.skill-row .sbtns button{padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text2);font-size:11px;cursor:pointer;font-family:inherit;transition:all .12s}
+.skill-row .sbtns .sedit:hover{border-color:var(--accent);color:var(--accent)}
+.skill-row .sbtns .sdel:hover{border-color:var(--danger);color:var(--danger)}
+.skill-add{margin-top:12px;display:block;width:100%;padding:8px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;font-size:12px;font-family:inherit;text-align:center}
+.skill-add:hover{opacity:0.85}
 .skill-close{display:block;margin:14px auto 0;padding:8px 24px;background:var(--bg);color:var(--text2);border:1px solid var(--border);border-radius:20px;cursor:pointer;font-size:12px;font-family:inherit}
 .skill-close:hover{background:var(--hover-bg);color:var(--text)}
+.skill-edit-area textarea{width:100%;min-height:180px;font-family:monospace;font-size:13px;padding:10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);resize:vertical}
+.skill-edit-area input{width:100%;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);font-size:13px;margin-bottom:8px}
 </style>
 </head>
 <body>
@@ -401,20 +409,32 @@ function openSkills() {
   var overlay = document.getElementById("skillOverlay");
   var box = document.getElementById("skillBox");
   overlay.classList.add("show");
+  refreshSkillPanel(box, overlay);
+  overlay.onclick = function(e){ if (e.target === overlay) overlay.classList.remove("show"); };
+}
+
+function refreshSkillPanel(box, overlay) {
   box.innerHTML = "<div style=\"text-align:center;color:var(--text2);padding:30px\">Loading...</div>";
   api("/api/skills").then(function(skills){
-    var h = "<h3>🧠 Skills</h3><div class=\"sub\">Select a skill to invoke:</div>";
+    var h = "<h3>🧠 Skills</h3><div class=\"sub\">Select a skill to invoke, or edit/delete:</div>";
     for (var i = 0; i < skills.length; i++) {
       var s = skills[i];
       h += "<div class=\"skill-row\" data-name=\"" + esc(s.name) + "\">" +
         "<div class=\"sn\">" + esc(s.name) + "</div>" +
-        "<div class=\"sd\">" + esc(s.description) + "</div></div>";
+        "<div class=\"sd\">" + esc(s.description) + "</div>" +
+        "<div class=\"sbtns\">" +
+        "<button class=\"sedit\" data-name=\"" + esc(s.name) + "\">✎ Edit</button>" +
+        "<button class=\"sdel\" data-name=\"" + esc(s.name) + "\">🗑 Delete</button>" +
+        "</div></div>";
     }
+    h += "<button class=\"skill-add\" onclick=\"openSkillCreator()\">＋ Add New Skill</button>";
     h += "<button class=\"skill-close\">Close</button>";
     box.innerHTML = h;
     box.querySelector(".skill-close").onclick = function(){ overlay.classList.remove("show"); };
-    box.querySelectorAll(".skill-row").forEach(function(el){
-      el.onclick = function(){
+    // Click skill row = invoke it
+    box.querySelectorAll(".skill-row .sn, .skill-row .sd").forEach(function(el){
+      el.parentNode.onclick = function(e){
+        if (e.target.closest('.sbtns')) return;
         var name = this.getAttribute("data-name");
         var task = prompt("Skill: " + name + "\n\nEnter task:");
         overlay.classList.remove("show");
@@ -430,15 +450,134 @@ function openSkills() {
           el.innerHTML += "<div class=\"msg user\">🧠 Skill: " + esc(name) + " — " + esc(task) + "</div>";
           el.innerHTML += "<div class=\"msg assistant\"><div class=\"md\">" + marked.parse(esc(d.reply || "")) + "</div></div>";
           el.scrollTop = el.scrollHeight;
-        }).catch(function(e){
-          alert("Skill error: " + e.message);
-        });
+        }).catch(function(e){ alert("Skill error: " + e.message); });
+      };
+    });
+    // Edit buttons
+    box.querySelectorAll(".sedit").forEach(function(btn){
+      btn.onclick = function(e){
+        e.stopPropagation();
+        var name = this.getAttribute("data-name");
+        openSkillEditor(name);
+      };
+    });
+    // Delete buttons
+    box.querySelectorAll(".sdel").forEach(function(btn){
+      btn.onclick = function(e){
+        e.stopPropagation();
+        var name = this.getAttribute("data-name");
+        if (!confirm("Delete skill \"" + name + "\"? This cannot be undone.")) return;
+        api("/api/skills/" + encodeURIComponent(name), {method:"DELETE"}).then(function(d){
+          if (d.status === "deleted") {
+            refreshSkillPanel(box, overlay);
+          } else {
+            alert("Delete failed: " + (d.error || "unknown"));
+          }
+        }).catch(function(e){ alert("Delete error: " + e.message); });
       };
     });
   }).catch(function(e){
     box.innerHTML = "<div style=\"text-align:center;color:var(--danger);padding:20px\">Failed: " + esc(e.message) + "</div><button class=\"skill-close\" onclick=\"document.getElementById('skillOverlay').classList.remove('show')\">Close</button>";
   });
-  overlay.onclick = function(e){ if (e.target === overlay) overlay.classList.remove("show"); };
+}
+
+function openSkillEditor(name) {
+  var overlay = document.getElementById("skillOverlay");
+  var box = document.getElementById("skillBox");
+  overlay.classList.add("show");
+  box.innerHTML = "<div style=\"text-align:center;color:var(--text2);padding:30px\">Loading...</div>";
+  // Fetch skill content (via /api/skills list then match, or show a textarea with name)
+  // We need content - use the load endpoint or just show edit form
+  fetch("/api/skills/" + encodeURIComponent(name) + "/run", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({session_id: "", task: ""})
+  }).then(function(r){ return r.json(); }).catch(function(){
+    // fallback: just show edit form with placeholder
+  });
+  // Better: API to get raw content. Use generic approach: inline editor
+  api("/api/skills").then(function(skills){
+    var sk = null;
+    for (var i = 0; i < skills.length; i++) {
+      if (skills[i].name === name) { sk = skills[i]; break; }
+    }
+    var h = "<h3>✎ Edit Skill: " + esc(name) + "</h3>";
+    h += "<div class=\"skill-edit-area\">";
+    h += "<label style=\"font-size:12px;color:var(--text2)\">Content (SKILL.md):</label>";
+    h += "<textarea id=\"skillEditContent\">Loading...</textarea>";
+    h += "</div>";
+    h += "<div style=\"display:flex;gap:8px;margin-top:12px\">";
+    h += "<button class=\"skill-add\" id=\"skillSaveBtn\" style=\"flex:1\">💾 Save</button>";
+    h += "<button class=\"skill-close\" id=\"skillCancelBtn\" style=\"margin:0;flex:1\">Cancel</button>";
+    h += "</div>";
+    box.innerHTML = h;
+
+    // Load current content from file
+    fetch("/api/skills/" + encodeURIComponent(name) + "/content")
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        document.getElementById("skillEditContent").value = d.content || "# " + name + "\n\ncontent";
+      })
+      .catch(function(){
+        document.getElementById("skillEditContent").value = "---\nname: " + name + "\ndescription: \"\"\n---\n\n# " + name + "\n\n";
+      });
+
+    document.getElementById("skillSaveBtn").onclick = function(){
+      var newContent = document.getElementById("skillEditContent").value;
+      fetch("/api/skills/" + encodeURIComponent(name) + "/edit", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({content: newContent})
+      }).then(function(r){return r.json()}).then(function(d){
+        if (d.status === "updated") {
+          refreshSkillPanel(box, overlay);
+        } else {
+          alert("Save failed: " + (d.error || "unknown"));
+        }
+      }).catch(function(e){ alert("Save error: " + e.message); });
+    };
+    document.getElementById("skillCancelBtn").onclick = function(){
+      refreshSkillPanel(box, overlay);
+    };
+  }).catch(function(e){
+    box.innerHTML = "<div style=\"text-align:center;color:var(--danger);padding:20px\">Error: " + esc(e.message) + "</div><button class=\"skill-close\" onclick=\"document.getElementById('skillOverlay').classList.remove('show')\">Close</button>";
+  });
+}
+
+function openSkillCreator() {
+  var overlay = document.getElementById("skillOverlay");
+  var box = document.getElementById("skillBox");
+  var h = "<h3>＋ Add New Skill</h3>";
+  h += "<div class=\"skill-edit-area\">";
+  h += "<input id=\"skillNewName\" placeholder=\"Skill name (e.g. my-helper)\">";
+  h += "<textarea id=\"skillNewContent\" placeholder=\"---\nname: my-helper\ndescription: A description\n---\n\n# My Helper\n\nInstructions...\"></textarea>";
+  h += "</div>";
+  h += "<div style=\"display:flex;gap:8px;margin-top:12px\">";
+  h += "<button class=\"skill-add\" id=\"skillCreateBtn\" style=\"flex:1\">＋ Create</button>";
+  h += "<button class=\"skill-close\" id=\"skillCreateCancelBtn\" style=\"margin:0;flex:1\">Cancel</button>";
+  h += "</div>";
+  box.innerHTML = h;
+
+  document.getElementById("skillCreateBtn").onclick = function(){
+    var name = document.getElementById("skillNewName").value.trim();
+    var content = document.getElementById("skillNewContent").value;
+    if (!name) { alert("Name is required"); return; }
+    if (!content) { alert("Content is required"); return; }
+    api("/api/skills", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({name: name, content: content})
+    }).then(function(d){
+      if (d.status === "created") {
+        refreshSkillPanel(box, overlay);
+      } else {
+        alert("Create failed: " + (d.error || "unknown"));
+      }
+    }).catch(function(e){ alert("Create error: " + e.message); });
+  };
+  document.getElementById("skillCreateCancelBtn").onclick = function(){
+    refreshSkillPanel(box, overlay);
+  };
 }
 
 function loadAttachments(sid) {

@@ -185,6 +185,15 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             self.wfile.write(data)
             return
 
+        # GET /api/skills/<name>/content — raw skill content
+        if path.startswith('/api/skills/') and path.endswith('/content'):
+            from src.skill_registry import load_skill
+            skill_name = path.split('/api/skills/')[1].split('/')[0]
+            content = load_skill(skill_name)
+            if content:
+                return self._json({"name": skill_name, "content": content})
+            return self._json({"error": "skill not found"}, 404)
+
         # List session attachments
         if path.endswith('/attachments'):
             sid = path.split('/api/sessions/')[1].split('/')[0]
@@ -227,6 +236,14 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             from src.workspace import clear_workspace
             clear_workspace()
             return self._json({"status": "cleared"})
+
+        # DELETE /api/skills/<name>
+        if path.startswith('/api/skills/'):
+            from src.skill_registry import delete_skill
+            skill_name = path.split('/api/skills/')[1].split('/')[0]
+            if delete_skill(skill_name):
+                return self._json({"status": "deleted", "name": skill_name})
+            return self._json({"error": "skill not found"}, 404)
 
         # DELETE /api/sessions/<id>
         if path.startswith('/api/sessions/'):
@@ -294,6 +311,30 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                 elif action == 'reject':
                     return self._json({"status": "rejected" if do_reject(aid) else "not found"})
             return self._json({"error": "invalid approval path"}, 400)
+
+        # POST /api/skills — create a new skill
+        if path == '/api/skills' and body:
+            from src.skill_registry import create_skill
+            name = body.get('name', '').strip()
+            content = body.get('content', '').strip()
+            if not name or not content:
+                return self._json({"error": "name and content required"}, 400)
+            if not name.replace('-','').replace('_','').isalnum():
+                return self._json({"error": "name must be alphanumeric (hyphens/underscores ok)"}, 400)
+            if create_skill(name, content):
+                return self._json({"status": "created", "name": name}, 201)
+            return self._json({"error": "skill already exists"}, 409)
+
+        # PATCH /api/skills/<name> — update skill content
+        if path.startswith('/api/skills/') and path.endswith('/edit') and body:
+            from src.skill_registry import update_skill
+            skill_name = path.split('/api/skills/')[1].split('/')[0]
+            content = body.get('content', '').strip()
+            if not content:
+                return self._json({"error": "content required"}, 400)
+            if update_skill(skill_name, content):
+                return self._json({"status": "updated", "name": skill_name})
+            return self._json({"error": "skill not found"}, 404)
 
         # POST /api/skills/<name>/run — invoke a skill
         if path.startswith('/api/skills/') and path.endswith('/run'):
@@ -485,7 +526,7 @@ def main():
     _scheduler = SchedulerEngine(_config, process_message)
     _scheduler.start()
 
-    port = int(sys.argv[2]) if len(sys.argv) > 2 else 5000
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 5000
     server = ThreadingHTTPServer(('127.0.0.1', port), GatewayHandler)
     print(f"Gateway: http://localhost:{port}")
     print(f"Web UI:  http://localhost:{port}")
