@@ -37,6 +37,8 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 .msg .md hr{border:none;border-top:1px solid var(--border);margin:.8em 0}
 .msg .md img{max-width:100%;border-radius:var(--radius)}
 .msg .md .hljs{background:transparent}
+.msg .cpbtn{position:absolute;top:6px;right:6px;width:24px;height:24px;border:none;border-radius:6px;background:var(--bg);color:var(--text2);cursor:pointer;font-size:11px;opacity:0;transition:opacity .15s;line-height:24px;text-align:center;padding:0}
+.msg:hover .cpbtn{opacity:0.6}.msg:hover .cpbtn:hover{opacity:1;background:var(--active-bg);color:var(--accent)}
 
 
 .sidebar{width:280px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
@@ -190,6 +192,7 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 <button class=skill-btn id=btnSkills>🧠 Skills</button>
 <button class=task-btn id=btnTasks>⏰ Tasks</button>
 <button class=task-btn id=btnWorkspace>📁 Workspace</button>
+<input id=sessionSearch placeholder="🔍 Search sessions..." style="width:calc(100% - 40px);margin:4px 20px 6px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);font-size:12px;font-family:inherit;outline:none">
 <div id=session-list></div>
 <label class="btn-upload" id="btnUpload">📎 Attach File<input type="file" id="fileInput"></label>
 </div>
@@ -198,7 +201,7 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 <div class="task-overlay" id="taskOverlay"><div class="task-box" id="taskBox"></div></div>
 <div class=main>
 <div class="notification-area" id="notification-area"><div id="notifications"></div></div>
-<div id=messages><div class=placeholder>Select a session to start chatting</div></div>
+<div id=messages><div class=placeholder>Select a session to start chatting<br><span style=font-size:11px;color:var(--text2)>Ctrl+N 新对话 · Ctrl+R 刷新 · Ctrl+D 删除</span></div></div>
 <div class="waiting" id="waiting">Claw is thinking...</div>
 <div class="attach-bar" id="attachBar"></div>
 <div class=input-area>
@@ -268,6 +271,11 @@ document.getElementById('session-list').addEventListener('click', function(e) {
   switchTo(si.getAttribute('data-id'));
 });
 
+// Session search
+document.getElementById('sessionSearch').addEventListener('input', function(e){
+  load(e.target.value.trim().toLowerCase());
+});
+
 function switchTo(id) {
   cur = id;
   document.getElementById('input').disabled = false;
@@ -280,10 +288,10 @@ function switchTo(id) {
     for (var i = 0; i < s.messages.length; i++) {
       var m = s.messages[i];
       if (m.role === 'assistant') {
-	        h += '<div class="msg assistant"><div class="md">' + marked.parse(esc(m.content)) + '</div></div>';
-	      } else {
-	        h += '<div class="msg ' + m.role + '">' + esc(m.content) + '</div>';
-	      }
+          h += '<div class="msg assistant" style="position:relative"><button class="cpbtn" onclick="navigator.clipboard.writeText(this.parentNode.querySelector(\'.md\').textContent);this.textContent=\'✓\';setTimeout(()=>this.textContent=\'📋\',1500)">📋</button><div class="md">' + marked.parse(esc(m.content)) + '</div></div>';
+        } else {
+          h += '<div class="msg ' + m.role + '" style="position:relative"><button class="cpbtn" onclick="navigator.clipboard.writeText(this.parentNode.textContent.replace(/📋/,\'\').trim());this.textContent=\'✓\';setTimeout(()=>this.textContent=\'📋\',1500)">📋</button>' + esc(m.content) + '</div>';
+        }
     }
     el.innerHTML = h || '<div class="placeholder">No messages yet</div>';
     el.scrollTop = el.scrollHeight;
@@ -561,6 +569,12 @@ document.addEventListener('DOMContentLoaded', function(){
     var isDark = document.body.classList.contains('dark');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
     this.textContent = isDark ? '☀️' : '🌙';
+  });
+  // Keyboard shortcuts
+  document.addEventListener('keydown', function(e){
+    if (e.ctrlKey && e.key === 'n') { e.preventDefault(); newSession(); }
+    if (e.ctrlKey && e.key === 'r') { e.preventDefault(); if (cur) switchTo(cur); }
+    if (e.ctrlKey && e.key === 'd') { e.preventDefault(); if (cur) doDelete(cur); }
   });
   document.getElementById('btnSkills').addEventListener('click', openSkills);
   document.getElementById('btnTasks').addEventListener('click', openTasks);
