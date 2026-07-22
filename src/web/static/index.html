@@ -416,7 +416,7 @@ function openSkills() {
 function refreshSkillPanel(box, overlay) {
   box.innerHTML = "<div style=\"text-align:center;color:var(--text2);padding:30px\">Loading...</div>";
   api("/api/skills").then(function(skills){
-    var h = "<h3>🧠 Skills</h3><div class=\"sub\">Select a skill to invoke, or edit/delete:</div>";
+    var h = "<h3>🧠 Skills</h3><div class=\"sub\">Manage your skills:</div>";
     for (var i = 0; i < skills.length; i++) {
       var s = skills[i];
       h += "<div class=\"skill-row\" data-name=\"" + esc(s.name) + "\">" +
@@ -431,28 +431,6 @@ function refreshSkillPanel(box, overlay) {
     h += "<button class=\"skill-close\">Close</button>";
     box.innerHTML = h;
     box.querySelector(".skill-close").onclick = function(){ overlay.classList.remove("show"); };
-    // Click skill row = invoke it
-    box.querySelectorAll(".skill-row .sn, .skill-row .sd").forEach(function(el){
-      el.parentNode.onclick = function(e){
-        if (e.target.closest('.sbtns')) return;
-        var name = this.getAttribute("data-name");
-        var task = prompt("Skill: " + name + "\n\nEnter task:");
-        overlay.classList.remove("show");
-        if (!task || !task.trim()) return;
-        var curId = cur;
-        if (!curId) { alert("Select a session first"); return; }
-        fetch("/api/skills/" + encodeURIComponent(name) + "/run", {
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({session_id: curId, task: task.trim()})
-        }).then(function(r){return r.json()}).then(function(d){
-          var el = document.getElementById("messages");
-          el.innerHTML += "<div class=\"msg user\">🧠 Skill: " + esc(name) + " — " + esc(task) + "</div>";
-          el.innerHTML += "<div class=\"msg assistant\"><div class=\"md\">" + marked.parse(esc(d.reply || "")) + "</div></div>";
-          el.scrollTop = el.scrollHeight;
-        }).catch(function(e){ alert("Skill error: " + e.message); });
-      };
-    });
     // Edit buttons
     box.querySelectorAll(".sedit").forEach(function(btn){
       btn.onclick = function(e){
