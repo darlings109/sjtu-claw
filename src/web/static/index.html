@@ -156,6 +156,14 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 .skill-close:hover{background:var(--hover-bg);color:var(--text)}
 .skill-edit-area textarea{width:100%;min-height:180px;font-family:monospace;font-size:13px;padding:10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);resize:vertical}
 .skill-edit-area input{width:100%;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);font-size:13px;margin-bottom:8px}
+/* Approval cards in messages */
+.approval-card{background:var(--surface);border:1px solid var(--accent);border-radius:var(--radius-lg);padding:16px 20px;margin:8px auto;align-self:center;min-width:300px;max-width:90%;box-shadow:var(--shadow-lg)}
+.approval-card h4{color:var(--accent);font-size:13px;margin-bottom:8px;font-weight:600}
+.approval-card .detail{font-size:12px;color:var(--text2);margin-bottom:12px}
+.approval-card .btns{display:flex;gap:8px;justify-content:center}
+.approval-card .btns button{padding:8px 20px;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .15s}
+.approval-card .btn-ok{background:#43a047;color:#fff}.approval-card .btn-ok:hover{background:#388e3c}
+.approval-card .btn-no{background:#e53935;color:#fff}.approval-card .btn-no:hover{background:#c62828}
 /* Dialog overlay */
 .dialog-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.35);z-index:110;justify-content:center;align-items:center}
 .dialog-overlay.show{display:flex}
@@ -179,6 +187,7 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 <button class=btn-new id=btnNew><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>New Session</button>
 <button class=skill-btn id=btnSkills>🧠 Skills</button>
 <button class=task-btn id=btnTasks>⏰ Tasks</button>
+<button class=task-btn id=btnWorkspace>📁 Workspace</button>
 <div id=session-list></div>
 <label class="btn-upload" id="btnUpload">📎 Attach File<input type="file" id="fileInput"></label>
 </div>
@@ -268,6 +277,7 @@ function switchTo(id) {
     el.innerHTML = h || '<div class="placeholder">No messages yet</div>';
     el.scrollTop = el.scrollHeight;
     loadAttachments(id);
+    startApprovalPoll();
     var savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') { document.body.classList.add('dark'); document.getElementById('themeToggle').textContent = '☀️'; }
     load();
@@ -426,6 +436,81 @@ function send() {
   });
 }
 
+// Approval polling
+var approvalPollTimer = null;
+
+function startApprovalPoll() {
+  stopApprovalPoll();
+  approvalPollTimer = setInterval(function(){
+    api('/api/approvals').then(function(apps){
+      if (!apps || !apps.length) return;
+      var el = document.getElementById('messages');
+      apps.forEach(function(a){
+        var existing = document.querySelector('.approval-card[data-aid="' + a.approval_id + '"]');
+        if (existing) return;
+        var h = '<div class="approval-card" data-aid="' + a.approval_id + '">';
+        h += '<h4>🔐 Approval Required</h4>';
+        h += '<div class="detail"><b>' + esc(a.tool) + '</b><br>' + esc(JSON.stringify(a.args)) + '</div>';
+        h += '<div class="btns">';
+        h += '<button class="btn-ok" data-aid="' + a.approval_id + '" data-action="approve">✅ Approve</button>';
+        h += '<button class="btn-no" data-aid="' + a.approval_id + '" data-action="reject">❌ Reject</button>';
+        h += '</div></div>';
+        el.innerHTML += h;
+        el.scrollTop = el.scrollHeight;
+      });
+      el.querySelectorAll('.btn-ok, .btn-no').forEach(function(btn){
+        btn.onclick = function(){
+          var aid = this.getAttribute('data-aid');
+          var action = this.getAttribute('data-action');
+          var url = '/api/approvals/' + encodeURIComponent(aid) + '/' + action;
+          api(url, {method:'POST'}).then(function(d){
+            var card = document.querySelector('.approval-card[data-aid="' + aid + '"]');
+            if (card) card.remove();
+          }).catch(function(e){ showAlertDialog("Approval Error", e.message); });
+        };
+      });
+    }).catch(function(){});
+  }, 2000);
+}
+
+function stopApprovalPoll() {
+  if (approvalPollTimer) { clearInterval(approvalPollTimer); approvalPollTimer = null; }
+}
+
+function openWorkspace() {
+  var overlay = document.getElementById("dialogOverlay");
+  var box = document.getElementById("dialogBox");
+  overlay.classList.add("show");
+  api("/api/workspace").then(function(d){
+    var currentPath = d.workspace || "";
+    var h = "<h3>📁 Workspace</h3>";
+    h += "<p>Current workspace path:</p>";
+    h += "<input id=\"wsInput\" value=\"" + esc(currentPath) + "\" placeholder=\"/path/to/workspace\">";
+    h += "<div class=\"dialog-btns\">";
+    h += "<button class=\"dialog-btn-ok\" id=\"wsSetBtn\">Set</button>";
+    h += "<button class=\"dialog-btn-danger\" id=\"wsClearBtn\">Clear</button>";
+    h += "<button class=\"dialog-btn-cancel\" id=\"wsCancelBtn\">Close</button>";
+    h += "</div>";
+    box.innerHTML = h;
+    document.getElementById("wsSetBtn").onclick = function(){
+      var path = document.getElementById("wsInput").value.trim();
+      if (!path) { showAlertDialog("Error", "Path cannot be empty"); return; }
+      api('/api/workspace', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({path: path})}).then(function(){
+        openWorkspace();
+      }).catch(function(e){ showAlertDialog("Error", e.message); });
+    };
+    document.getElementById("wsClearBtn").onclick = function(){
+      api('/api/workspace', {method:'DELETE'}).then(function(){
+        openWorkspace();
+      }).catch(function(e){ showAlertDialog("Error", e.message); });
+    };
+    document.getElementById("wsCancelBtn").onclick = function(){ overlay.classList.remove("show"); };
+  }).catch(function(e){
+    box.innerHTML = "<p style=\"color:var(--danger);padding:20px\">Error: " + esc(e.message) + "</p><button class=\"dialog-btn-cancel\" onclick=\"document.getElementById('dialogOverlay').classList.remove('show')\">Close</button>";
+  });
+  overlay.onclick = function(e){ if (e.target === overlay) overlay.classList.remove("show"); };
+}
+
 function resetSend(btn, input) {
   btn.disabled = false; input.disabled = false;
   btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7L13 1L7 13L5 9L1 7Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Send';
@@ -464,6 +549,7 @@ document.addEventListener('DOMContentLoaded', function(){
   });
   document.getElementById('btnSkills').addEventListener('click', openSkills);
   document.getElementById('btnTasks').addEventListener('click', openTasks);
+  document.getElementById('btnWorkspace').addEventListener('click', openWorkspace);
   document.getElementById('fileInput').addEventListener('change', function(e) {
     var file = e.target.files[0];
     if (!file || !cur) return;
