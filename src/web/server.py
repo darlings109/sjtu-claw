@@ -140,6 +140,15 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             from src.scheduler import list_tasks
             return self._json(list_tasks())
 
+        # Task detail
+        if path.startswith('/api/tasks/'):
+            from src.scheduler import get_task
+            tid = path.split('/api/tasks/')[1].split('/')[0]
+            task = get_task(tid)
+            if task:
+                return self._json(task)
+            return self._json({"error": "task not found"}, 404)
+
         # List sessions
         if path == '/api/sessions':
             sessions = list_sessions()
@@ -244,6 +253,14 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             if delete_skill(skill_name):
                 return self._json({"status": "deleted", "name": skill_name})
             return self._json({"error": "skill not found"}, 404)
+
+        # DELETE /api/tasks/<id> — cancel a task
+        if path.startswith('/api/tasks/'):
+            from src.scheduler import cancel_task
+            tid = path.split('/api/tasks/')[1].split('/')[0]
+            if cancel_task(tid):
+                return self._json({"status": "cancelled", "task_id": tid})
+            return self._json({"error": "task not found"}, 404)
 
         # DELETE /api/sessions/<id>
         if path.startswith('/api/sessions/'):
@@ -523,10 +540,10 @@ def main():
         print(f"[ERROR] {e}")
         sys.exit(1)
 
-    # Start scheduler engine
+    # Start scheduler engine (use process_and_compact for context management)
     from src.scheduler import SchedulerEngine
-    from src.agent import process_message
-    _scheduler = SchedulerEngine(_config, process_message)
+    from src.agent import process_and_compact
+    _scheduler = SchedulerEngine(_config, process_and_compact)
     _scheduler.start()
 
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 5000
