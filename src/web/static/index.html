@@ -305,6 +305,36 @@ function showDeleteDialog(id) {
   overlay.onclick = function(e){ if (e.target === overlay) overlay.classList.remove("show"); };
 }
 
+function showConfirmDialog(title, message, onConfirm) {
+  var overlay = document.getElementById("dialogOverlay");
+  var box = document.getElementById("dialogBox");
+  overlay.classList.add("show");
+  var h = "<h3>" + esc(title) + "</h3>";
+  h += "<p>" + message + "</p>";
+  h += "<div class=\"dialog-btns\">";
+  h += "<button class=\"dialog-btn-danger\" id=\"confirmOkBtn\">Confirm</button>";
+  h += "<button class=\"dialog-btn-cancel\" id=\"confirmCancelBtn\">Cancel</button>";
+  h += "</div>";
+  box.innerHTML = h;
+  document.getElementById("confirmOkBtn").onclick = function(){ overlay.classList.remove("show"); if (onConfirm) onConfirm(); };
+  document.getElementById("confirmCancelBtn").onclick = function(){ overlay.classList.remove("show"); };
+  overlay.onclick = function(e){ if (e.target === overlay) overlay.classList.remove("show"); };
+}
+
+function showAlertDialog(title, message) {
+  var overlay = document.getElementById("dialogOverlay");
+  var box = document.getElementById("dialogBox");
+  overlay.classList.add("show");
+  var h = "<h3>" + esc(title) + "</h3>";
+  h += "<p>" + esc(message) + "</p>";
+  h += "<div class=\"dialog-btns\">";
+  h += "<button class=\"dialog-btn-ok\" id=\"alertOkBtn\">OK</button>";
+  h += "</div>";
+  box.innerHTML = h;
+  document.getElementById("alertOkBtn").onclick = function(){ overlay.classList.remove("show"); };
+  overlay.onclick = function(e){ if (e.target === overlay) overlay.classList.remove("show"); };
+}
+
 function send() {
   var btn = document.getElementById('btnSend');
   var input = document.getElementById('input');
@@ -615,12 +645,16 @@ function loadAttachments(sid) {
       btn.onclick = function(e){
         e.stopPropagation();
         var fname = this.getAttribute('data-f');
-        if (!confirm('Delete attachment?')) return;
-        var url = '/api/sessions/' + encodeURIComponent(sid) + '/attachments/' + encodeURIComponent(fname);
-        fetch(url, {method:'DELETE'}).then(function(r){ return r.json(); }).then(function(d){
-          if (d.error) { alert('Delete failed: ' + d.error); return; }
-          loadAttachments(sid);
-        }).catch(function(e){ alert('Delete error: ' + e.message); });
+        showConfirmDialog("Delete attachment", "Delete attachment \"" + esc(fname) + "\"?", function(){
+          var url = '/api/sessions/' + encodeURIComponent(sid) + '/attachments/' + encodeURIComponent(fname);
+          fetch(url, {method:'DELETE'}).then(function(r){ return r.json(); }).then(function(d){
+            if (d.error) {
+              showAlertDialog("Delete failed", d.error);
+              return;
+            }
+            loadAttachments(sid);
+          }).catch(function(e){ showAlertDialog("Delete error", e.message); });
+        });
       };
     });
   }).catch(function(){});
