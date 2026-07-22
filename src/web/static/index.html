@@ -871,8 +871,24 @@ function loadAttachments(sid) {
     bar.innerHTML = items.map(function(f){
       var icon = fileIcon(f.original_name || f.filename);
       var sizeStr = f.size > 1024 ? (f.size/1024).toFixed(1)+'KB' : f.size+'B';
-      return '<span class="attach-chip">' + icon + ' <span class="name">' + esc(f.original_name || f.filename) + '</span> <span class="size">' + sizeStr + '</span> <span class="del-attach" data-f="' + f.filename + '">✕</span></span>';
+      return '<span class="attach-chip" data-f="' + f.filename + '" data-orig="' + esc(f.original_name || f.filename) + '">' + icon + ' <span class="name">' + esc(f.original_name || f.filename) + '</span> <span class="size">' + sizeStr + '</span> <span class="del-attach" data-f="' + f.filename + '">✕</span></span>';
     }).join('');
+    // Click chip to preview
+    bar.querySelectorAll('.attach-chip').forEach(function(chip){
+      chip.onclick = function(e){
+        if (e.target.closest('.del-attach')) return;
+        var fname = this.getAttribute('data-f');
+        var orig = this.getAttribute('data-orig');
+        var el = document.getElementById('messages');
+        var url = '/api/sessions/' + encodeURIComponent(sid) + '/attachments/' + encodeURIComponent(fname);
+        fetch(url).then(function(r){ return r.text(); }).then(function(text){
+          var preview = text.slice(0,3000);
+          if (text.length > 3000) preview += '\n... (truncated, ' + text.length + ' total chars)';
+          el.innerHTML += '<div class="msg tool" style="text-align:left;white-space:pre-wrap;font-family:monospace;font-size:12px;max-height:300px;overflow-y:auto">📄 ' + esc(orig) + '\n\n' + esc(preview) + '</div>';
+          el.scrollTop = el.scrollHeight;
+        }).catch(function(){});
+      };
+    });
     bar.querySelectorAll('.del-attach').forEach(function(btn){
       btn.onclick = function(e){
         e.stopPropagation();
