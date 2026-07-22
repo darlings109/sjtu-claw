@@ -54,6 +54,8 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 .si .title{font-size:13px;color:var(--text);padding-right:50px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .si .meta{font-size:11px;color:var(--text2);margin-top:2px;display:flex;align-items:center;gap:6px}
 .si .badge{font-size:10px;background:var(--active-bg);color:var(--accent);padding:1px 6px;border-radius:6px}
+.si .dot{display:none;width:8px;height:8px;border-radius:50%;background:#e74c3c;margin-left:auto;flex-shrink:0;box-shadow:0 0 4px rgba(231,76,60,0.5)}
+.si .dot.show{display:inline-block}
 .si .btn-group{position:absolute;top:8px;right:8px;display:flex;gap:2px;opacity:0.6;transition:opacity .15s}
 .si:hover .btn-group{opacity:1}
 .si .btn-group button{width:22px;height:22px;border:none;border-radius:6px;cursor:pointer;font-size:10px;line-height:22px;text-align:center;padding:0;transition:all .15s}
@@ -210,6 +212,15 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 </div>
 <script>
 var cur = null;
+var lastSeen = {};
+
+function loadSeen() {
+  try { lastSeen = JSON.parse(localStorage.getItem('seen') || '{}'); } catch(e){ lastSeen = {}; }
+}
+function saveSeen() {
+  try { localStorage.setItem('seen', JSON.stringify(lastSeen)); } catch(e){} 
+}
+loadSeen();
 
 function api(path, opts) {
   return fetch(path, opts).then(function(r){
@@ -238,7 +249,7 @@ function load(filter) {
       var t = s.updated_at ? s.updated_at.slice(5,16) : '';
       h += '<div class="si' + a + '" data-id="' + s.session_id + '">' +
         '<div class="title">' + esc(s.title) + '</div>' +
-        '<div class="meta">' + t + ' <span class="badge">' + s.message_count + ' msgs</span></div>' +
+        '<div class="meta">' + t + ' <span class="badge">' + s.message_count + ' msgs</span> <span class="dot' + (s.session_id !== cur && (!lastSeen[s.session_id] || lastSeen[s.session_id] < s.updated_at) ? ' show' : '') + '"></span></div>' +
         '<div class="btn-group">' +
         '<button class="btn-rename">✎</button>' +
         '<button class="btn-delete">✕</button>' +
@@ -278,6 +289,10 @@ function switchTo(id) {
     el.scrollTop = el.scrollHeight;
     loadAttachments(id);
     startApprovalPoll();
+    // Mark as seen
+    lastSeen[id] = new Date().toISOString();
+    saveSeen();
+    load();
     var savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') { document.body.classList.add('dark'); document.getElementById('themeToggle').textContent = '☀️'; }
     load();
