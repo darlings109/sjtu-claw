@@ -389,7 +389,6 @@ function switchTo(id) {
     load();
     var savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') { document.body.classList.add('dark'); document.getElementById('themeToggle').textContent = '☀️'; }
-    load();
   }).catch(function(){});
 }
 
