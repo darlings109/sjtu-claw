@@ -486,21 +486,7 @@ function openSkillEditor(name) {
   var box = document.getElementById("skillBox");
   overlay.classList.add("show");
   box.innerHTML = "<div style=\"text-align:center;color:var(--text2);padding:30px\">Loading...</div>";
-  // Fetch skill content (via /api/skills list then match, or show a textarea with name)
-  // We need content - use the load endpoint or just show edit form
-  fetch("/api/skills/" + encodeURIComponent(name) + "/run", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({session_id: "", task: ""})
-  }).then(function(r){ return r.json(); }).catch(function(){
-    // fallback: just show edit form with placeholder
-  });
-  // Better: API to get raw content. Use generic approach: inline editor
   api("/api/skills").then(function(skills){
-    var sk = null;
-    for (var i = 0; i < skills.length; i++) {
-      if (skills[i].name === name) { sk = skills[i]; break; }
-    }
     var h = "<h3>✎ Edit Skill: " + esc(name) + "</h3>";
     h += "<div class=\"skill-edit-area\">";
     h += "<label style=\"font-size:12px;color:var(--text2)\">Content (SKILL.md):</label>";

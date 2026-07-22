@@ -312,6 +312,9 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                     return self._json({"status": "rejected" if do_reject(aid) else "not found"})
             return self._json({"error": "invalid approval path"}, 400)
 
+        # 读取请求体（供后续 POST 路由使用）
+        body = self._read_json()
+
         # POST /api/skills — create a new skill
         if path == '/api/skills' and body:
             from src.skill_registry import create_skill
