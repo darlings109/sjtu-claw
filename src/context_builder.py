@@ -7,7 +7,7 @@ from typing import Dict, List
 
 from src.prompt_loader import assemble_prompt
 from src.session_store import Session
-from src.skill_registry import get_skill_index
+from src.skill_registry import get_skill_catalog
 
 
 def build_context(session: Session) -> List[Dict[str, str]]:
@@ -29,10 +29,10 @@ def build_context(session: Session) -> List[Dict[str, str]]:
     # 1-3. 使用 assemble_prompt 组装所有 system prompt 段
     full_prompt = assemble_prompt()
 
-    # 技能索引（轻量）
-    skill_index = get_skill_index()
-    if skill_index:
-        full_prompt += "\n\n" + skill_index
+    # 技能目录（LCC s07 两级加载的第一级：猫在 system prompt 中的简短索引）
+    skill_catalog = get_skill_catalog()
+    if skill_catalog:
+        full_prompt += "\n\n" + skill_catalog
 
     messages.append({"role": "system", "content": full_prompt})
 

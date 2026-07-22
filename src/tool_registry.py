@@ -245,6 +245,12 @@ def handle_create_download(path: str) -> str:
     return ws_dl(path)
 
 
+def handle_load_skill(name: str) -> str:
+    """按需加载技能完整内容（LCC s07 两级加载的第二级）"""
+    from src.skill_registry import load_skill_content
+    return load_skill_content(name)
+
+
 def init_tools() -> None:
     """初始化并注册所有只读 tool"""
     r = _registry
@@ -390,6 +396,23 @@ def init_tools() -> None:
             "required": ["pattern"],
         },
         handler=glob_files,
+    )
+
+    # LCC s07: load_skill — 按需加载技能内容（第二级）
+    r.register(
+        name="load_skill",
+        description="加载指定技能的完整内容。技能名称和描述已在 Available skills 中列出，调用此工具获取详细指令。",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "技能名称，例如 code-review、agent-builder",
+                },
+            },
+            "required": ["name"],
+        },
+        handler=handle_load_skill,
     )
 
 
