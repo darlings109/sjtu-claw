@@ -128,6 +128,19 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 .skill-close:hover{background:var(--hover-bg);color:var(--text)}
 .skill-edit-area textarea{width:100%;min-height:180px;font-family:monospace;font-size:13px;padding:10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);resize:vertical}
 .skill-edit-area input{width:100%;padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);font-size:13px;margin-bottom:8px}
+/* Dialog overlay */
+.dialog-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.35);z-index:110;justify-content:center;align-items:center}
+.dialog-overlay.show{display:flex}
+.dialog-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;min-width:360px;max-width:90%;box-shadow:var(--shadow-lg);text-align:center}
+.dialog-box h3{font-size:16px;font-weight:600;color:var(--text);margin:0 0 8px}
+.dialog-box p{font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.5}
+.dialog-box input{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:14px;background:var(--bg);color:var(--text);outline:none;font-family:inherit;margin-bottom:16px;transition:border-color .2s}
+.dialog-box input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+.dialog-btns{display:flex;gap:10px;justify-content:center}
+.dialog-btns button{padding:9px 28px;border-radius:var(--radius);border:none;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;transition:all .15s}
+.dialog-btn-ok{background:var(--accent);color:#fff}.dialog-btn-ok:hover{background:var(--accent-hover)}
+.dialog-btn-danger{background:var(--danger);color:#fff}.dialog-btn-danger:hover{opacity:0.85}
+.dialog-btn-cancel{background:var(--bg);color:var(--text2);border:1px solid var(--border)!important}.dialog-btn-cancel:hover{background:var(--hover-bg);color:var(--text)}
 </style>
 </head>
 <body>
@@ -141,6 +154,7 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 <label class="btn-upload" id="btnUpload">📎 Attach File<input type="file" id="fileInput"></label>
 </div>
 <div class="skill-overlay" id="skillOverlay"><div class="skill-box" id="skillBox"></div></div>
+<div class="dialog-overlay" id="dialogOverlay"><div class="dialog-box" id="dialogBox"></div></div>
 <div class=main>
 <div class="notification-area" id="notification-area"><div id="notifications"></div></div>
 <div id=messages><div class=placeholder>Select a session to start chatting</div></div>
@@ -235,18 +249,60 @@ function newSession() {
 }
 
 function doRename(id) {
-  var name = prompt('Rename ' + id + ':');
-  if (name && name.trim()) {
-    api('/api/sessions/' + id + '/rename', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({title:name.trim()})}).then(function(){ load(); if (cur === id) switchTo(id); }).catch(function(){});
-  }
+  showRenameDialog(id);
 }
 
 function doDelete(id) {
-  if (!confirm('Delete session ' + id + '?')) return;
-  api('/api/sessions/' + id, {method:'DELETE'}).then(function(){
-    if (cur === id) { cur = null; document.getElementById('messages').innerHTML = '<div class="placeholder">Select a session</div>'; document.getElementById('input').disabled = true; document.getElementById('btnSend').disabled = true; }
-    load();
-  }).catch(function(){});
+  showDeleteDialog(id);
+}
+
+function showRenameDialog(id) {
+  var overlay = document.getElementById("dialogOverlay");
+  var box = document.getElementById("dialogBox");
+  overlay.classList.add("show");
+  var h = "<h3>✎ Rename Session</h3>";
+  h += "<p>Enter a new title:</p>";
+  h += "<input id=\"renameInput\" placeholder=\"New session title\">";
+  h += "<div class=\"dialog-btns\">";
+  h += "<button class=\"dialog-btn-ok\" id=\"renameOkBtn\">Rename</button>";
+  h += "<button class=\"dialog-btn-cancel\" id=\"renameCancelBtn\">Cancel</button>";
+  h += "</div>";
+  box.innerHTML = h;
+  var input = document.getElementById("renameInput");
+  input.focus();
+  document.getElementById("renameOkBtn").onclick = function(){
+    var name = input.value.trim();
+    if (!name) { input.focus(); return; }
+    api('/api/sessions/' + id + '/rename', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({title: name})}).then(function(){
+      overlay.classList.remove("show");
+      load(); if (cur === id) switchTo(id);
+    }).catch(function(){});
+  };
+  input.onkeydown = function(e){ if (e.key === 'Enter') document.getElementById("renameOkBtn").click(); };
+  document.getElementById("renameCancelBtn").onclick = function(){ overlay.classList.remove("show"); };
+  overlay.onclick = function(e){ if (e.target === overlay) overlay.classList.remove("show"); };
+}
+
+function showDeleteDialog(id) {
+  var overlay = document.getElementById("dialogOverlay");
+  var box = document.getElementById("dialogBox");
+  overlay.classList.add("show");
+  var h = "<h3>🗑 Delete Session</h3>";
+  h += "<p>Are you sure you want to delete this session?<br>This cannot be undone.</p>";
+  h += "<div class=\"dialog-btns\">";
+  h += "<button class=\"dialog-btn-danger\" id=\"deleteOkBtn\">Delete</button>";
+  h += "<button class=\"dialog-btn-cancel\" id=\"deleteCancelBtn\">Cancel</button>";
+  h += "</div>";
+  box.innerHTML = h;
+  document.getElementById("deleteOkBtn").onclick = function(){
+    api('/api/sessions/' + id, {method:'DELETE'}).then(function(){
+      overlay.classList.remove("show");
+      if (cur === id) { cur = null; document.getElementById('messages').innerHTML = '<div class="placeholder">Select a session</div>'; document.getElementById('input').disabled = true; document.getElementById('btnSend').disabled = true; }
+      load();
+    }).catch(function(){});
+  };
+  document.getElementById("deleteCancelBtn").onclick = function(){ overlay.classList.remove("show"); };
+  overlay.onclick = function(e){ if (e.target === overlay) overlay.classList.remove("show"); };
 }
 
 function send() {
