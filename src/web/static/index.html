@@ -507,40 +507,143 @@ function send() {
 
     var body = {content: t};
     if (hasAttachments) body.attachments = attachments.map(function(f){ return f.filename; });
-    api('/api/sessions/' + cur + '/messages', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}).then(function(r){
-      el.innerHTML += '<div class="msg assistant"><div class="md">' + marked.parse(esc(r.reply)) + '</div></div>';
-      el.scrollTop = el.scrollHeight;
-      // delete sent attachments so they are not re-sent
+    // SSE streaming
+    var xhr = new XMLHttpRequest();
+    var streamUrl = '/api/sessions/' + encodeURIComponent(cur) + '/messages/stream';
+    xhr.open('POST', streamUrl);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.responseType = 'text';
+    var msgDiv = null;
+    mdContent = '';
+    xhr.onprogress = function(){
+      var text = xhr.responseText;
+      var lines = text.split('\n');
+      for (var li = 0; li < lines.length; li++) {
+        var line = lines[li].trim();
+        if (!line || !line.startsWith('data: ')) continue;
+        try {
+          var ev = JSON.parse(line.slice(6));
+          if (ev.type === 'token') {
+            if (!msgDiv) {
+              msgDiv = document.createElement('div');
+              msgDiv.className = 'msg assistant';
+              msgDiv.innerHTML = '<div class="md"></div>';
+              el.appendChild(msgDiv);
+            }
+            mdContent += ev.content || '';
+            msgDiv.querySelector('.md').innerHTML = marked.parse(esc(mdContent));
+            el.scrollTop = el.scrollHeight;
+          } else if (ev.type === 'text_done') {
+            if (!msgDiv) {
+              el.innerHTML += '<div class="msg assistant"><div class="md">' + marked.parse(esc(ev.content || '')) + '</div></div>';
+            } else {
+              mdContent = ev.content || '';
+              msgDiv.querySelector('.md').innerHTML = marked.parse(esc(mdContent));
+            }
+            el.scrollTop = el.scrollHeight;
+          } else if (ev.type === 'tool_call') {
+            if (!msgDiv) {
+              msgDiv = document.createElement('div');
+              msgDiv.className = 'msg assistant';
+              msgDiv.innerHTML = '<div class="md"></div>';
+              el.appendChild(msgDiv);
+            }
+            mdContent += '\n\n🔧 [' + (ev.name || 'tool') + ']';
+            msgDiv.querySelector('.md').innerHTML = marked.parse(esc(mdContent));
+            el.scrollTop = el.scrollHeight;
+          } else if (ev.type === 'done') {
+            // final
+          } else if (ev.type === 'error') {
+            el.innerHTML += '<div class="msg assistant" style="color:var(--danger)">[Error] ' + esc(ev.content || '') + '</div>';
+          }
+        } catch(e2){}
+      }
+    };
+    xhr.onloadend = function(){
+      // Cleanup
       if (hasAttachments) {
         attachments.forEach(function(f){
           fetch('/api/sessions/' + encodeURIComponent(cur) + '/attachments/' + encodeURIComponent(f.filename), {method:'DELETE'}).catch(function(){});
         });
       }
       load();
-    }).catch(function(e){
-      el.innerHTML += '<div class="msg assistant" style="color:var(--danger)">[Error] ' + esc(e.message) + '</div>';
-    }).finally(function(){
       btn.disabled = false; input.disabled = false;
       btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7L13 1L7 13L5 9L1 7Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Send';
       input.focus();
       document.getElementById('waiting').style.display = 'none';
-    });
+    };
+    xhr.onerror = function(){
+      el.innerHTML += '<div class="msg assistant" style="color:var(--danger)">[Error] Connection failed</div>';
+      resetSend(btn, input);
+    };
+    xhr.send(JSON.stringify(body));
   }).catch(function(){
     // Fallback: send without attachments
     if (!t && !hasAttachments) { resetSend(btn, input); return; }
-    api('/api/sessions/' + cur + '/messages', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content: t})}).then(function(r){
-      el.innerHTML += '<div class="msg assistant"><div class="md">' + marked.parse(esc(r.reply)) + '</div></div>';
-      el.scrollTop = el.scrollHeight;
-      // delete sent attachments so they are not re-sent
+    // SSE streaming (fallback path, no attachments)
+    var xhr = new XMLHttpRequest();
+    var streamUrl = '/api/sessions/' + encodeURIComponent(cur) + '/messages/stream';
+    xhr.open('POST', streamUrl);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.responseType = 'text';
+    var msgDiv = null;
+    mdContent = '';
+    xhr.onprogress = function(){
+      var text = xhr.responseText;
+      var lines = text.split('\n');
+      for (var li = 0; li < lines.length; li++) {
+        var line = lines[li].trim();
+        if (!line || !line.startsWith('data: ')) continue;
+        try {
+          var ev = JSON.parse(line.slice(6));
+          if (ev.type === 'token') {
+            if (!msgDiv) {
+              msgDiv = document.createElement('div');
+              msgDiv.className = 'msg assistant';
+              msgDiv.innerHTML = '<div class="md"></div>';
+              el.appendChild(msgDiv);
+            }
+            mdContent += ev.content || '';
+            msgDiv.querySelector('.md').innerHTML = marked.parse(esc(mdContent));
+            el.scrollTop = el.scrollHeight;
+          } else if (ev.type === 'text_done') {
+            if (!msgDiv) {
+              el.innerHTML += '<div class="msg assistant"><div class="md">' + marked.parse(esc(ev.content || '')) + '</div></div>';
+            } else {
+              mdContent = ev.content || '';
+              msgDiv.querySelector('.md').innerHTML = marked.parse(esc(mdContent));
+            }
+            el.scrollTop = el.scrollHeight;
+          } else if (ev.type === 'tool_call') {
+            if (!msgDiv) {
+              msgDiv = document.createElement('div');
+              msgDiv.className = 'msg assistant';
+              msgDiv.innerHTML = '<div class="md"></div>';
+              el.appendChild(msgDiv);
+            }
+            mdContent += '\n\n🔧 [' + (ev.name || 'tool') + ']';
+            msgDiv.querySelector('.md').innerHTML = marked.parse(esc(mdContent));
+            el.scrollTop = el.scrollHeight;
+          } else if (ev.type === 'error') {
+            el.innerHTML += '<div class="msg assistant" style="color:var(--danger)">[Error] ' + esc(ev.content || '') + '</div>';
+          }
+        } catch(e2){}
+      }
+    };
+    xhr.onloadend = function(){
       if (hasAttachments) {
         attachments.forEach(function(f){
           fetch('/api/sessions/' + encodeURIComponent(cur) + '/attachments/' + encodeURIComponent(f.filename), {method:'DELETE'}).catch(function(){});
         });
       }
       load();
-    }).catch(function(e){
-      el.innerHTML += '<div class="msg assistant" style="color:var(--danger)">[Error] ' + esc(e.message) + '</div>';
-    }).finally(function(){ resetSend(btn, input); });
+      resetSend(btn, input);
+    };
+    xhr.onerror = function(){
+      el.innerHTML += '<div class="msg assistant" style="color:var(--danger)">[Error] Connection failed</div>';
+      resetSend(btn, input);
+    };
+    xhr.send(JSON.stringify({content: t}));
   });
 }
 
