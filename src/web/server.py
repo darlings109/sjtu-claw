@@ -8,6 +8,7 @@ import json
 import mimetypes
 import os
 import re
+import ssl
 import sys
 import threading
 import uuid
@@ -147,7 +148,7 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             task = get_task(tid)
             if task:
                 return self._json(task)
-            return self._json({"error": "task not found"}, 404)
+            return self._error("not_found", "Task not found", 404)
 
         # List sessions
         if path == '/api/sessions':
@@ -165,7 +166,7 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             from src.workspace import get_download_path
             file_path = get_download_path(dl_id)
             if file_path is None:
-                return self._json({"error": "download not found"}, 404)
+                return self._error("download_not_found", "Download not found", 404)
             try:
                 data = file_path.read_bytes()
                 self.send_response(200)
@@ -175,7 +176,7 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(data)
             except Exception as e:
-                return self._json({"error": str(e)}, 500)
+                return self._error("download_error", str(e), 500)
             return
 
         # Get individual attachment
@@ -185,7 +186,7 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             filename = parts[2]
             file_path = ATTACHMENTS_DIR / sid / filename
             if not file_path.exists():
-                return self._json({"error": "not found"}, 404)
+                return self._error("not_found", "Attachment not found", 404)
             data = file_path.read_bytes()
             self.send_response(200)
             self.send_header('Content-Type', 'application/octet-stream')
@@ -197,11 +198,12 @@ class GatewayHandler(SimpleHTTPRequestHandler):
         # GET /api/skills/<name>/content — raw skill content
         if path.startswith('/api/skills/') and path.endswith('/content'):
             from src.skill_registry import load_skill
-            skill_name = path.split('/api/skills/')[1].split('/')[0]
+            from urllib.parse import unquote
+            skill_name = unquote(path.split('/api/skills/')[1].split('/')[0])
             content = load_skill(skill_name)
             if content:
                 return self._json({"name": skill_name, "content": content})
-            return self._json({"error": "skill not found"}, 404)
+            return self._error("skill_not_found", f"Skill not found: {skill_name}", 404)
 
         # List session attachments
         if path.endswith('/attachments'):
@@ -223,7 +225,7 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             sid = path.split('/api/sessions/')[1].split('/')[0]
             session = load_session(sid)
             if session is None:
-                return self._json({"error": "not found"}, 404)
+                return self._error("not_found", "Attachment not found", 404)
             return self._json({
                 "session_id": session.session_id,
                 "title": session.title,
@@ -252,7 +254,7 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             skill_name = path.split('/api/skills/')[1].split('/')[0]
             if delete_skill(skill_name):
                 return self._json({"status": "deleted", "name": skill_name})
-            return self._json({"error": "skill not found"}, 404)
+            return self._error("skill_not_found", "Skill not found", 404)
 
         # DELETE /api/tasks/<id> — cancel a task
         if path.startswith('/api/tasks/'):
@@ -260,7 +262,7 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             tid = path.split('/api/tasks/')[1].split('/')[0]
             if cancel_task(tid):
                 return self._json({"status": "cancelled", "task_id": tid})
-            return self._json({"error": "task not found"}, 404)
+            return self._error("not_found", "Task not found", 404)
 
         # DELETE /api/sessions/<id>
         if path.startswith('/api/sessions/'):
@@ -276,16 +278,16 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                     # 列出目录内容对比
                     print(f"[DELETE] dir={_os.listdir(str(ATTACHMENTS_DIR / sid))}")
                 if not file_path.exists():
-                    return self._json({"error": "not found", "filename": filename}, 404)
+                    return self._error("attachment_not_found", f"Not found: {filename}", 404)
                 file_path.unlink()
                 return self._json({"status": "deleted", "filename": filename})
             # DELETE /api/sessions/<id>
             if delete_session(sid):
                 return self._json({"status": "deleted", "session_id": sid})
             else:
-                return self._json({"error": "not found or cannot delete"}, 404)
+                return self._error("session_not_found", "Session not found or cannot delete", 404)
 
-        return self._json({"error": "not found"}, 404)
+        return self._error("not_found", "Not found", 404)
 
     def do_POST(self):
         parsed = urlparse(self.path)
@@ -314,7 +316,7 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             task = create_task(body.get('content',''), body.get('trigger_time',''), body.get('session_id',''), body.get('repeat_rule',''))
             if task:
                 return self._json(task, 201)
-            return self._json({"error": "invalid task params"}, 400)
+            return self._error("invalid_params", "Invalid task parameters", 400)
 
         # POST /api/approvals/<id>/approve or /reject
         if path.startswith('/api/approvals/'):
@@ -327,7 +329,7 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                     return self._json({"status": "approved" if do_approve(aid) else "not found"})
                 elif action == 'reject':
                     return self._json({"status": "rejected" if do_reject(aid) else "not found"})
-            return self._json({"error": "invalid approval path"}, 400)
+            return self._error("invalid_approval_path", "Invalid approval path", 400)
 
         # 读取请求体（供后续 POST 路由使用）
         body = self._read_json()
@@ -338,12 +340,12 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             name = body.get('name', '').strip()
             content = body.get('content', '').strip()
             if not name or not content:
-                return self._json({"error": "name and content required"}, 400)
+                return self._error("required", "Name and content required", 400)
             if not name.replace('-','').replace('_','').isalnum():
-                return self._json({"error": "name must be alphanumeric (hyphens/underscores ok)"}, 400)
+                return self._error("invalid_name", "Name must be alphanumeric (hyphens/underscores ok)", 400)
             if create_skill(name, content):
                 return self._json({"status": "created", "name": name}, 201)
-            return self._json({"error": "skill already exists"}, 409)
+            return self._error("conflict", "Skill already exists", 409)
 
         # PATCH /api/skills/<name> — update skill content
         if path.startswith('/api/skills/') and path.endswith('/edit') and body:
@@ -351,10 +353,10 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             skill_name = path.split('/api/skills/')[1].split('/')[0]
             content = body.get('content', '').strip()
             if not content:
-                return self._json({"error": "content required"}, 400)
+                return self._error("required", "Content required", 400)
             if update_skill(skill_name, content):
                 return self._json({"status": "updated", "name": skill_name})
-            return self._json({"error": "skill not found"}, 404)
+            return self._error("skill_not_found", "Skill not found", 404)
 
         # POST /api/skills/<name>/run — invoke a skill
         if path.startswith('/api/skills/') and path.endswith('/run'):
@@ -364,15 +366,15 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             task = body.get('task', '').strip()
             sid = body.get('session_id', '')
             if not sid:
-                return self._json({"error": "session_id required"}, 400)
+                return self._error("required", "Session ID required", 400)
             skill_content = load_skill(skill_name)
             if skill_content is None:
-                return self._json({"error": f"skill not found: {skill_name}"}, 404)
+                return self._error("skill_not_found", f"Skill not found: {skill_name}", 404)
             from urllib.parse import unquote
             skill_name = unquote(skill_name)
             session = load_session(sid)
             if session is None:
-                return self._json({"error": "session not found"}, 404)
+                return self._error("session_not_found", "Session not found", 404)
             # Inject skill content into prompt (same logic as CLI handle_skill_command)
             enhanced = "[Using skill: " + skill_name + "]\n\n" + skill_content
             if task:
@@ -385,7 +387,7 @@ class GatewayHandler(SimpleHTTPRequestHandler):
 
         # Extract session_id from path for session-scoped routes
         if not path.startswith('/api/sessions/') and not path.startswith('/api/skills/'):
-            return self._json({"error": "not found"}, 404)
+            return self._error("not_found", "Not found", 404)
 
         sid = path.split('/api/sessions/')[1].split('/')[0]
 
@@ -393,21 +395,21 @@ class GatewayHandler(SimpleHTTPRequestHandler):
         if '/rename' in path:
             session = load_session(sid)
             if session is None:
-                return self._json({"error": "session not found"}, 404)
+                return self._error("session_not_found", "Session not found", 404)
             body = self._read_json()
             title = body.get('title', '').strip()
             if title:
                 session.title = title
                 save_session(session)
                 return self._json({"status": "renamed", "session_id": sid, "title": title})
-            return self._json({"error": "title required"}, 400)
+            return self._error("required", "Title required", 400)
 
         # POST .../attachments — upload file (multipart/form-data)
         if '/attachments' in path and not '/messages' in path:
             content_type = self.headers.get('Content-Type', '')
             content_length = int(self.headers.get('Content-Length', 0))
             if content_length == 0:
-                return self._json({"error": "no data"}, 400)
+                return self._error("no_data", "No data received", 400)
             body = self.rfile.read(content_length)
 
             filename, file_data = _parse_multipart(body, content_type)
@@ -434,11 +436,11 @@ class GatewayHandler(SimpleHTTPRequestHandler):
         if '/messages/stream' in path:
             session = load_session(sid)
             if session is None:
-                return self._json({"error": "session not found"}, 404)
+                return self._error("session_not_found", "Session not found", 404)
             body = self._read_json()
             content_text = body.get('content', '').strip()
             if not content_text:
-                return self._json({"error": "content required"}, 400)
+                return self._error("required", "Content required", 400)
 
             self.send_response(200)
             self.send_header('Content-Type', 'text/event-stream')
@@ -462,13 +464,13 @@ class GatewayHandler(SimpleHTTPRequestHandler):
         if '/messages' in path:
             session = load_session(sid)
             if session is None:
-                return self._json({"error": "session not found"}, 404)
+                return self._error("session_not_found", "Session not found", 404)
             body = self._read_json()
             content = body.get('content', '').strip()
             attachments = body.get('attachments', [])
             # 允许纯发文件（没有文本内容）
             if not content and not attachments:
-                return self._json({"error": "content required"}, 400)
+                return self._error("required", "Content required", 400)
             # 将附件内容拼入 prompt
             if attachments:
                 file_list = []
@@ -489,7 +491,7 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._json({"reply": f"[API Error] {str(e)[:200]}", "session_id": session.session_id})
 
-        return self._json({"error": "not found"}, 404)
+        return self._error("not_found", "Not found", 404)
 
     def _path_segment(self, path: str, index: int) -> str:
         """Extract a segment from a /api/xxx/yyy/zzz path by 0-based index"""
@@ -505,6 +507,10 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             return json.loads(self.rfile.read(length))
         except (json.JSONDecodeError, ValueError):
             return {}
+
+    def _error(self, code: str, message: str, status=400):
+        """统一错误响应格式"""
+        return self._json({"error": code, "message": message}, status)
 
     def _json(self, data, status=200):
         data_bytes = json.dumps(data, ensure_ascii=False).encode('utf-8')
@@ -532,6 +538,34 @@ class GatewayHandler(SimpleHTTPRequestHandler):
 
 _scheduler = None
 
+def _parse_gateway_args() -> tuple:
+    """解析 gateway 启动参数：--port, --cert, --key"""
+    args = sys.argv[1:]  # main.py 已 pop 掉 'gateway'
+    port = 5000
+    cert = None
+    key = None
+    i = 0
+    while i < len(args):
+        if args[i] == '--port' and i + 1 < len(args):
+            try:
+                port = int(args[i + 1])
+            except ValueError:
+                pass
+            i += 2
+        elif args[i] == '--cert' and i + 1 < len(args):
+            cert = args[i + 1]
+            i += 2
+        elif args[i] == '--key' and i + 1 < len(args):
+            key = args[i + 1]
+            i += 2
+        elif args[i].isdigit():
+            port = int(args[i])
+            i += 1
+        else:
+            i += 1
+    return port, cert, key
+
+
 def main():
     global _config, _scheduler
     try:
@@ -546,10 +580,35 @@ def main():
     _scheduler = SchedulerEngine(_config, process_and_compact)
     _scheduler.start()
 
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 5000
+    port = 5000
+    cert_path = None
+    key_path = None
+
+    # 优先读取 sys.argv（从 main.py 传过来时已 pop 'gateway'）
+    if len(sys.argv) > 1:
+        port, cert_path, key_path = _parse_gateway_args()
+
     server = ThreadingHTTPServer(('127.0.0.1', port), GatewayHandler)
-    print(f"Gateway: http://localhost:{port}")
-    print(f"Web UI:  http://localhost:{port}")
+
+    if cert_path and key_path:
+        cert = Path(cert_path).resolve()
+        key = Path(key_path).resolve()
+        if not cert.exists():
+            print(f"[ERROR] Certificate not found: {cert}")
+            sys.exit(1)
+        if not key.exists():
+            print(f"[ERROR] Key file not found: {key}")
+            sys.exit(1)
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(str(cert), str(key))
+        server.socket = ctx.wrap_socket(server.socket, server_side=True)
+        protocol = "https"
+        print(f"[gateway] TLS enabled: cert={cert.name}")
+    else:
+        protocol = "http"
+
+    print(f"Gateway: {protocol}://localhost:{port}")
+    print(f"Web UI:  {protocol}://localhost:{port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

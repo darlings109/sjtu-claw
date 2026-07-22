@@ -178,7 +178,7 @@ def main() -> None:
     try:
         config = load_config()
     except (FileNotFoundError, ValueError) as e:
-        print(f"[错误] {e}", file=sys.stderr)
+        print(f"[error] {e}", file=sys.stderr)
         sys.exit(1)
 
     # 启动 scheduler
@@ -269,9 +269,9 @@ def main() -> None:
             reply = process_and_compact(config, current, user_input)
             print(f"Assistant> {reply}\n")
         except (ConnectionError, ValueError) as e:
-            print(f"[错误] {e}\n", file=sys.stderr)
+            print(f"[error] {e}\n", file=sys.stderr)
         except Exception as e:
-            print(f"[错误] 未知异常：{e}\n", file=sys.stderr)
+            print(f"[error] 未知异常：{e}\n", file=sys.stderr)
 
 
 def handle_skill_command(config, session: Session, raw_input: str) -> Session:
@@ -339,7 +339,7 @@ def handle_skill_command(config, session: Session, raw_input: str) -> Session:
             "time": __import__("datetime").datetime.now().isoformat(),
         })
     except Exception as e:
-        print(f"[Error] {e}")
+        print(f"[error] {e}")
     return session
 
 
