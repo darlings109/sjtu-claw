@@ -450,6 +450,7 @@ def handle_task_command(config, session, raw_input: str) -> None:
 if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1 and sys.argv[1] in ("gateway", "--gateway", "server"):
+        sys.argv.pop(1)
         from src.web.server import main as gateway_main
         gateway_main()
     else:
