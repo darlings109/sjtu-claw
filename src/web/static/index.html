@@ -47,6 +47,8 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 .sidebar-header h2 span{background:var(--accent);color:#fff;font-size:9px;padding:2px 8px;border-radius:20px;font-weight:600;letter-spacing:0.3px}
 #themeToggle{cursor:pointer;font-size:15px;opacity:0.5;transition:opacity .2s;margin-left:auto}
 #themeToggle:hover{opacity:1}
+#settingsToggle{cursor:pointer;font-size:14px;opacity:0.5;margin-left:2px;transition:all .2s}
+#settingsToggle:hover{opacity:1;transform:rotate(45deg)}
 .btn-new{display:flex;align-items:center;justify-content:center;gap:6px;margin:12px 20px 6px;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;transition:all .2s ease}
 .btn-new:hover{background:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-lg)}
 #session-list{flex:1;overflow-y:auto;padding:4px 12px}
@@ -181,20 +183,62 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 .dialog-btn-ok{background:var(--accent);color:#fff}.dialog-btn-ok:hover{background:var(--accent-hover)}
 .dialog-btn-danger{background:var(--danger);color:#fff}.dialog-btn-danger:hover{opacity:0.85}
 .dialog-btn-cancel{background:var(--bg);color:var(--text2);border:1px solid var(--border)!important}.dialog-btn-cancel:hover{background:var(--hover-bg);color:var(--text)}
+
+/* ============ Settings hub — 侧栏功能入口统一收纳于此 ============ */
+.settings-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:120;justify-content:center;align-items:center}
+.settings-overlay.show{display:flex}
+.settings-box{position:relative;display:flex;width:720px;max-width:92%;height:520px;max-height:88vh;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);overflow:hidden}
+.settings-nav{width:186px;flex-shrink:0;background:var(--surface-raised);border-right:1px solid var(--border);padding:20px 12px;display:flex;flex-direction:column;gap:2px}
+.settings-nav-title{font-size:11px;font-weight:700;color:var(--text2);letter-spacing:1.4px;text-transform:uppercase;padding:0 12px 12px}
+.settings-nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius);cursor:pointer;font-size:13px;color:var(--text2);transition:all .15s;user-select:none}
+.settings-nav-item span{width:16px;text-align:center;font-size:12px;opacity:.7}
+.settings-nav-item:hover{background:var(--hover-bg);color:var(--text)}
+.settings-nav-item.active{background:var(--active-bg);color:var(--accent);font-weight:600}
+.settings-nav-item.active span{opacity:1}
+.settings-content{flex:1;padding:26px 28px;overflow-y:auto}
+.settings-content h3{font-size:16px;font-weight:600;color:var(--text);margin:0 0 4px}
+.settings-content .sub{font-size:12px;color:var(--text2);margin-bottom:20px;line-height:1.6}
+.settings-close{position:absolute;top:14px;right:16px;width:26px;height:26px;line-height:26px;text-align:center;border-radius:8px;cursor:pointer;color:var(--text2);font-size:13px;transition:all .15s}
+.settings-close:hover{background:var(--hover-bg);color:var(--text)}
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)}
+.set-row:last-child{border-bottom:none}
+.set-row .lbl{font-size:13px;color:var(--text)}
+.set-row .hint{font-size:11px;color:var(--text2);margin-top:2px}
+.set-action{padding:7px 16px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .18s}
+.set-action:hover{background:var(--accent-hover);transform:translateY(-1px)}
+.set-action.ghost{background:var(--bg);color:var(--text2);border:1px solid var(--border)}
+.set-action.ghost:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-glow);transform:none}
+.set-seg{display:flex;gap:4px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:3px}
+.set-seg button{padding:5px 14px;border:none;background:none;border-radius:7px;cursor:pointer;font-size:12px;color:var(--text2);font-family:inherit;transition:all .15s}
+.set-seg button.on{background:var(--accent);color:#fff;font-weight:600}
+.set-key{width:150px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:ui-monospace,monospace;font-size:12px;text-align:center;outline:none;transition:all .15s}
+.set-key:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
 </style>
 </head>
 <body>
 <div class=sidebar>
 <div class=sidebar-header>
-<h2>SJTUClaw<span>v2</span><span id="themeToggle" title="Toggle theme">🌙</span><span id="settingsToggle" title="Settings" style="cursor:pointer;font-size:14px;opacity:0.4;margin-left:6px;transition:opacity .2s">⚙️</span></h2>
+<h2>SJTUClaw<span>v2</span><span id="themeToggle" title="Toggle theme">🌙</span><span id="settingsToggle" title="设置">⚙️</span></h2>
 </div>
 <button class=btn-new id=btnNew><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>New Session</button>
-<button class=skill-btn id=btnSkills>🧠 Skills</button>
-<button class=task-btn id=btnTasks>⏰ Tasks</button>
-<button class=task-btn id=btnWorkspace>📁 Workspace</button>
 <input id=sessionSearch placeholder="🔍 Search sessions..." style="width:calc(100% - 40px);margin:4px 20px 6px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);font-size:12px;font-family:inherit;outline:none">
 <div id=session-list></div>
 <label class="btn-upload" id="btnUpload">📎 Attach File<input type="file" id="fileInput"></label>
+</div>
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-box">
+    <div class="settings-nav">
+      <div class="settings-nav-title">设置</div>
+      <div class="settings-nav-item active" data-pane="appearance"><span>◐</span>外观</div>
+      <div class="settings-nav-item" data-pane="shortcuts"><span>⌘</span>快捷键</div>
+      <div class="settings-nav-item" data-pane="skills"><span>◇</span>技能</div>
+      <div class="settings-nav-item" data-pane="tasks"><span>◔</span>定时任务</div>
+      <div class="settings-nav-item" data-pane="workspace"><span>▤</span>工作区</div>
+      <div class="settings-nav-item" data-pane="about"><span>◈</span>关于</div>
+    </div>
+    <div class="settings-content" id="settingsContent"></div>
+    <div class="settings-close" id="settingsClose">✕</div>
+  </div>
 </div>
 <div class="skill-overlay" id="skillOverlay"><div class="skill-box" id="skillBox"></div></div>
 <div class="dialog-overlay" id="dialogOverlay"><div class="dialog-box" id="dialogBox"></div></div>
@@ -246,27 +290,74 @@ function saveSettings() {
 loadSettings();
 
 function openSettings() {
-  var overlay = document.getElementById("dialogOverlay");
-  var box = document.getElementById("dialogBox");
+  var overlay = document.getElementById("settingsOverlay");
   overlay.classList.add("show");
-  var h = "<h3>⚙️ Settings</h3>";
-  h += "<div style='text-align:left;font-size:13px'>";
-  h += "<p style='font-weight:600;margin:0 0 12px;color:var(--text)'>Keyboard Shortcuts</p>";
-  for (var k in settings.shortcuts) {
-    var s = settings.shortcuts[k];
-    var combo = (s.ctrl ? 'Ctrl+' : '') + (s.shift ? 'Shift+' : '') + s.key.toUpperCase();
-    h += "<div style='display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);gap:8px'>";
-    h += "<span style='color:var(--text2);font-size:12px'>" + esc(s.desc) + "</span>";
-    h += "<input id='sk_" + k + "' value='" + esc(combo) + "' style='width:140px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:monospace;font-size:12px;text-align:center;outline:none' readonly onfocus='this.select()' onkeydown='captureShortcut(event,this,\"" + k + "\")'>";
-    h += "</div>";
+  renderSettingsPane(document.querySelector('.settings-nav-item.active').dataset.pane);
+}
+
+function closeSettings() {
+  document.getElementById("settingsOverlay").classList.remove("show");
+}
+
+// 各功能面板原本散落在侧栏，现统一由设置中心作为入口
+var SETTINGS_PANES = {
+  appearance: function() {
+    var isDark = document.body.classList.contains('dark');
+    var h = "<h3>外观</h3><div class='sub'>切换界面主题，选择会保存在本地。</div>";
+    h += "<div class='set-row'><div><div class='lbl'>主题</div>"
+       + "<div class='hint'>浅色 / 深色</div></div>"
+       + "<div class='set-seg'>"
+       + "<button class='" + (isDark ? '' : 'on') + "' onclick='setTheme(false)'>浅色</button>"
+       + "<button class='" + (isDark ? 'on' : '') + "' onclick='setTheme(true)'>深色</button>"
+       + "</div></div>";
+    return h;
+  },
+  shortcuts: function() {
+    var h = "<h3>快捷键</h3><div class='sub'>点击输入框后直接按下想要的组合键即可修改。</div>";
+    for (var k in settings.shortcuts) {
+      var s = settings.shortcuts[k];
+      var combo = (s.ctrl ? 'Ctrl+' : '') + (s.shift ? 'Shift+' : '') + s.key.toUpperCase();
+      h += "<div class='set-row'><div class='lbl'>" + esc(s.desc) + "</div>"
+         + "<input class='set-key' value='" + esc(combo) + "' readonly onfocus='this.select()'"
+         + " onkeydown='captureShortcut(event,this,\"" + k + "\")'></div>";
+    }
+    return h;
+  },
+  skills: function() {
+    return "<h3>技能</h3><div class='sub'>Skill 是面向某类任务的可复用能力包，只在需要时载入上下文。</div>"
+         + "<div class='set-row'><div><div class='lbl'>技能管理</div>"
+         + "<div class='hint'>查看、新建、编辑与删除 skill</div></div>"
+         + "<button class='set-action' onclick='closeSettings();openSkills()'>打开</button></div>";
+  },
+  tasks: function() {
+    return "<h3>定时任务</h3><div class='sub'>到点自动向指定会话发送消息，支持重复规则。</div>"
+         + "<div class='set-row'><div><div class='lbl'>任务管理</div>"
+         + "<div class='hint'>创建与取消定时任务</div></div>"
+         + "<button class='set-action' onclick='closeSettings();openTasks()'>打开</button></div>";
+  },
+  workspace: function() {
+    return "<h3>工作区</h3><div class='sub'>限定 Agent 可读写的目录，所有写操作仍需审批。</div>"
+         + "<div class='set-row'><div><div class='lbl'>工作区设置</div>"
+         + "<div class='hint'>指定或清除工作目录</div></div>"
+         + "<button class='set-action' onclick='closeSettings();openWorkspace()'>打开</button></div>";
+  },
+  about: function() {
+    return "<h3>关于</h3><div class='sub'>SJTUClaw — 从零构建的最小 AI Agent Runtime。</div>"
+         + "<div class='set-row'><div class='lbl'>版本</div><div class='hint'>v2</div></div>"
+         + "<div class='set-row'><div class='lbl'>运行模式</div><div class='hint'>Gateway (http.server)</div></div>";
   }
-  h += "<p style='font-size:11px;color:var(--text2);margin:12px 0 0'>Click the input and press your desired key combination</p>";
-  h += "</div>";
-  h += "<div class='dialog-btns' style='margin-top:16px'>";
-  h += "<button class='dialog-btn-ok' onclick='document.getElementById(\"dialogOverlay\").classList.remove(\"show\")'>Done</button>";
-  h += "</div>";
-  box.innerHTML = h;
-  overlay.onclick = function(e){ if (e.target === overlay) overlay.classList.remove("show"); };
+};
+
+function renderSettingsPane(name) {
+  var fn = SETTINGS_PANES[name] || SETTINGS_PANES.appearance;
+  document.getElementById('settingsContent').innerHTML = fn();
+}
+
+function setTheme(dark) {
+  document.body.classList.toggle('dark', dark);
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+  document.getElementById('themeToggle').textContent = dark ? '☀️' : '🌙';
+  renderSettingsPane('appearance');
 }
 
 function captureShortcut(e, input, keyName) {
@@ -761,9 +852,20 @@ document.addEventListener('DOMContentLoaded', function(){
     this.textContent = isDark ? '☀️' : '🌙';
   });
   document.getElementById('settingsToggle').addEventListener('click', openSettings);
-  document.getElementById('btnSkills').addEventListener('click', openSkills);
-  document.getElementById('btnTasks').addEventListener('click', openTasks);
-  document.getElementById('btnWorkspace').addEventListener('click', openWorkspace);
+  document.getElementById('settingsClose').addEventListener('click', closeSettings);
+  document.getElementById('settingsOverlay').addEventListener('click', function(e){
+    if (e.target === this) closeSettings();
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') closeSettings();
+  });
+  document.querySelectorAll('.settings-nav-item').forEach(function(item){
+    item.addEventListener('click', function(){
+      document.querySelectorAll('.settings-nav-item').forEach(function(n){ n.classList.remove('active'); });
+      item.classList.add('active');
+      renderSettingsPane(item.dataset.pane);
+    });
+  });
   document.getElementById('fileInput').addEventListener('change', function(e) {
     var file = e.target.files[0];
     if (!file || !cur) return;
