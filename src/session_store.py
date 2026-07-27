@@ -39,14 +39,24 @@ def _session_path(session_id: str) -> Path:
     return SESSIONS_DIR / f"{session_id}.json"
 
 
-def append_message(session_id: str, role: str, content: str) -> bool:
-    """原子操作：追加消息到 session（线程安全）"""
+def append_message(
+    session_id: str, role: str, content: str,
+    extra: Optional[Dict] = None,
+) -> bool:
+    """原子操作：追加消息到 session（线程安全）
+
+    extra 用于携带 tool calling 的配对字段（assistant 的 tool_calls、
+    tool 的 tool_call_id），缺失会导致下一轮请求被 API 拒绝。
+    """
     lock = _get_sess_lock(session_id)
     with lock:
         session = load_session(session_id)
         if session is None:
             return False
-        session.messages.append({"role": role, "content": content})
+        msg = {"role": role, "content": content}
+        if extra:
+            msg.update(extra)
+        session.messages.append(msg)
         session.updated_at = _now()
         path = _session_path(session_id)
         try:

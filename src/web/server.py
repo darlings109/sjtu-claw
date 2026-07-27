@@ -110,6 +110,8 @@ def _is_probably_text(path: Path) -> bool:
 
 class GatewayHandler(SimpleHTTPRequestHandler):
 
+    _body_cache = None
+
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
@@ -290,6 +292,7 @@ class GatewayHandler(SimpleHTTPRequestHandler):
         return self._error("not_found", "Not found", 404)
 
     def do_POST(self):
+        self._body_cache = None
         parsed = urlparse(self.path)
         path = parsed.path
 
@@ -407,10 +410,9 @@ class GatewayHandler(SimpleHTTPRequestHandler):
         # POST .../attachments — upload file (multipart/form-data)
         if '/attachments' in path and not '/messages' in path:
             content_type = self.headers.get('Content-Type', '')
-            content_length = int(self.headers.get('Content-Length', 0))
-            if content_length == 0:
+            body = self._read_body()
+            if not body:
                 return self._error("no_data", "No data received", 400)
-            body = self.rfile.read(content_length)
 
             filename, file_data = _parse_multipart(body, content_type)
             if filename is None:
@@ -439,13 +441,32 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                 return self._error("session_not_found", "Session not found", 404)
             body = self._read_json()
             content_text = body.get('content', '').strip()
-            if not content_text:
+            attachments = body.get('attachments', [])
+            # 允许纯发文件（没有文本内容）
+            if not content_text and not attachments:
                 return self._error("required", "Content required", 400)
+            # 将附件内容拼入 prompt（同非流式端点）
+            if attachments:
+                file_list = []
+                file_bodies = []
+                for fname in attachments:
+                    fcontent = _read_attachment_content(sid, fname)
+                    file_bodies.append(f"--- {fname} ---\n{fcontent}")
+                    file_list.append(fname)
+                prefix = (
+                    "[The user attached " + ", ".join(file_list) + ". "
+                    "The full file contents follow. Do NOT repeat them in your reply — just respond to the user's request directly, or if no specific request was made, briefly summarize what you see.]\n\n"
+                    + "\n".join(file_bodies)
+                )
+                content_text = prefix + ("\n\n" + content_text if content_text else "")
 
             self.send_response(200)
             self.send_header('Content-Type', 'text/event-stream')
             self.send_header('Cache-Control', 'no-cache')
-            self.send_header('Connection', 'keep-alive')
+            # 必须 close：SSE 无 Content-Length，客户端靠连接关闭判定流结束。
+            # 用 keep-alive 会让 send_header 置 close_connection=False，
+            # 流跑完后连接仍挂着，前端 onloadend 永不触发。
+            self.send_header('Connection', 'close')
             self.end_headers()
 
             from src.agent import _run_agent_stream
@@ -498,13 +519,28 @@ class GatewayHandler(SimpleHTTPRequestHandler):
         parts = [p for p in path.split('/') if p]
         return parts[index] if index < len(parts) else ""
 
+    def _read_body(self) -> bytes:
+        """读取请求体并缓存
+
+        rfile 是 socket 流，只能消费一次。do_POST 中多处会重复调用
+        _read_json()，若每次都去 rfile.read()，第二次会一直阻塞等待
+        永远不会到来的字节，直到客户端超时。
+        """
+        if self._body_cache is None:
+            try:
+                length = int(self.headers.get('Content-Length', 0))
+            except ValueError:
+                length = 0
+            self._body_cache = self.rfile.read(length) if length > 0 else b''
+        return self._body_cache
+
     def _read_json(self):
         """Read and parse JSON request body"""
         try:
-            length = int(self.headers.get('Content-Length', 0))
-            if length == 0:
+            raw = self._read_body()
+            if not raw:
                 return {}
-            return json.loads(self.rfile.read(length))
+            return json.loads(raw)
         except (json.JSONDecodeError, ValueError):
             return {}
 
@@ -599,7 +635,7 @@ def main():
         if not key.exists():
             print(f"[ERROR] Key file not found: {key}")
             sys.exit(1)
-        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ctx.load_cert_chain(str(cert), str(key))
         server.socket = ctx.wrap_socket(server.socket, server_side=True)
         protocol = "https"

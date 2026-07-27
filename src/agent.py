@@ -14,6 +14,18 @@ from src.session_store import Session, save_session, load_session
 from src.tool_registry import get_registry
 
 
+def _to_api_tool_call(tc: dict) -> dict:
+    """把内部 tool_call 结构还原成 OpenAI 请求格式，供回填历史使用"""
+    return {
+        "id": tc["id"],
+        "type": "function",
+        "function": {
+            "name": tc["name"],
+            "arguments": json.dumps(tc["arguments"], ensure_ascii=False),
+        },
+    }
+
+
 def process_message(
     config: LLMConfig,
     session: Session,
@@ -40,8 +52,11 @@ def process_message(
             config, messages, tools=tools_defs if tools_defs else None,
         )
 
-        # 记录 assistant 回复
-        session.messages.append({"role": "assistant", "content": content})
+        # 记录 assistant 回复（带 tool_calls，否则下一轮 tool 消息会成为孤儿）
+        assistant_msg = {"role": "assistant", "content": content}
+        if tool_calls:
+            assistant_msg["tool_calls"] = [_to_api_tool_call(tc) for tc in tool_calls]
+        session.messages.append(assistant_msg)
 
         # 没有 tool_call → 最终回复
         if not tool_calls:
@@ -125,9 +140,12 @@ def _run_agent_stream(config: LLMConfig, session: Session, user_content: str):
                 return
 
         # Save assistant reply
-        if collected_text:
-            append_message(session.session_id, "assistant", collected_text)
-            yield {"type": "text_done", "content": collected_text}
+        # 有 tool_calls 时必须落盘（即使没有文本），否则后面的 tool 消息会成为孤儿
+        if collected_text or tool_calls:
+            extra = {"tool_calls": [_to_api_tool_call(tc) for tc in tool_calls]} if tool_calls else None
+            append_message(session.session_id, "assistant", collected_text, extra)
+            if collected_text:
+                yield {"type": "text_done", "content": collected_text}
 
         if not tool_calls:
             break
@@ -137,8 +155,14 @@ def _run_agent_stream(config: LLMConfig, session: Session, user_content: str):
             name = tc["name"]
             args = tc["arguments"]
             result = get_registry().execute(name, args)
-            append_message(session.session_id, "tool", result)
+            append_message(session.session_id, "tool", result, {"tool_call_id": tc["id"]})
             yield {"type": "tool_result", "name": name, "result": result[:500]}
+
+        # 重新加载：上面的 append 只写了磁盘，内存里的 session 仍是旧的，
+        # 不刷新的话下一轮 build_context 看不到 tool 结果，会重复同一个 tool call
+        refreshed = load_session(session.session_id)
+        if refreshed:
+            session = refreshed
 
         tool_calls = []
 

@@ -524,6 +524,7 @@ function send() {
         try {
           var ev = JSON.parse(line.slice(6));
           if (ev.type === 'token') {
+            document.getElementById('waiting').style.display = 'none';
             if (!msgDiv) {
               msgDiv = document.createElement('div');
               msgDiv.className = 'msg assistant';
@@ -597,6 +598,7 @@ function send() {
         try {
           var ev = JSON.parse(line.slice(6));
           if (ev.type === 'token') {
+            document.getElementById('waiting').style.display = 'none';
             if (!msgDiv) {
               msgDiv = document.createElement('div');
               msgDiv.className = 'msg assistant';

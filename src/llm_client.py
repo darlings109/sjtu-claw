@@ -80,7 +80,7 @@ def chat_completion_stream(
     for chunk in response.iter_lines(decode_unicode=True):
         if not chunk:
             continue
-        if chunk.startswith("data: "):
+        if chunk.startswith("data: "): # type: ignore
             data_str = chunk[6:]
             if data_str == "[DONE]":
                 break
@@ -111,8 +111,12 @@ def chat_completion_stream(
                         }
                     if "function" in tc:
                         fn = tc["function"]
-                        if "name" in fn:
-                            current_tool_calls[idx]["name"] += fn["name"]
+                        if fn.get("name"):
+                            # DeepSeek 每个 delta 都重复完整 name，OpenAI 只发一次，
+                            # 也有厂商分片发送 —— 只在确实是新片段时才拼接
+                            cur = current_tool_calls[idx]["name"]
+                            if fn["name"] != cur:
+                                current_tool_calls[idx]["name"] = cur + fn["name"]
                         if "arguments" in fn:
                             current_tool_calls[idx]["arguments"] += fn["arguments"]
 
