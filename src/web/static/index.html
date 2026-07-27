@@ -213,6 +213,117 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 .set-seg button.on{background:var(--accent);color:#fff;font-weight:600}
 .set-key{width:150px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:ui-monospace,monospace;font-size:12px;text-align:center;outline:none;transition:all .15s}
 .set-key:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+
+/* ================= 科技感视觉层 =================
+   追加在最后，靠层叠顺序覆盖上面的基础样式，
+   不改动已验证的布局规则。 */
+
+/* 环境光：两团弥散辉光 + 极淡网格，铺在所有内容之下 */
+body::before{content:'';position:fixed;inset:0;z-index:-2;pointer-events:none;
+  background:
+    radial-gradient(900px 520px at 12% -8%, var(--glow-a), transparent 60%),
+    radial-gradient(760px 460px at 92% 108%, var(--glow-b), transparent 62%)}
+body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:var(--grid-opacity);
+  background-image:linear-gradient(var(--grid-line) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--grid-line) 1px,transparent 1px);
+  background-size:44px 44px;
+  -webkit-mask-image:radial-gradient(ellipse 78% 62% at 50% 42%,#000 35%,transparent 100%);
+  mask-image:radial-gradient(ellipse 78% 62% at 50% 42%,#000 35%,transparent 100%)}
+
+body{--glow-a:rgba(91,95,224,0.10);--glow-b:rgba(80,190,225,0.09);
+     --grid-line:rgba(26,26,46,0.05);--grid-opacity:.85;
+     --glass:rgba(255,255,255,0.72);--hairline:rgba(255,255,255,0.6)}
+@media(prefers-color-scheme:dark){
+body{--glow-a:rgba(124,127,240,0.16);--glow-b:rgba(64,200,240,0.11);
+     --grid-line:rgba(150,160,255,0.055);--grid-opacity:1;
+     --glass:rgba(26,26,40,0.68);--hairline:rgba(255,255,255,0.06)}
+}
+body.dark{--glow-a:rgba(124,127,240,0.16);--glow-b:rgba(64,200,240,0.11);
+     --grid-line:rgba(150,160,255,0.055);--grid-opacity:1;
+     --glass:rgba(26,26,40,0.68);--hairline:rgba(255,255,255,0.06)}
+body{background:var(--bg)}
+.main{background:transparent}
+
+/* 磨砂玻璃面板 */
+.sidebar{background:var(--glass);backdrop-filter:blur(20px) saturate(160%);
+  -webkit-backdrop-filter:blur(20px) saturate(160%);border-right:1px solid var(--border)}
+.settings-box,.skill-box,.task-box,.dialog-box{background:var(--glass);
+  backdrop-filter:blur(24px) saturate(170%);-webkit-backdrop-filter:blur(24px) saturate(170%);
+  box-shadow:0 24px 70px rgba(0,0,0,.20),inset 0 1px 0 var(--hairline)}
+.settings-overlay,.skill-overlay,.task-overlay,.dialog-overlay{backdrop-filter:blur(3px);
+  -webkit-backdrop-filter:blur(3px)}
+.settings-nav{background:transparent;border-right:1px solid var(--border)}
+
+/* 品牌标识：渐变字 + 呼吸状态点 */
+.sidebar-header h2{letter-spacing:.2px}
+.sidebar-header h2::before{content:'';width:7px;height:7px;border-radius:50%;
+  background:var(--accent);box-shadow:0 0 0 3px var(--accent-glow),0 0 12px var(--accent);
+  animation:pulse 2.6s ease-in-out infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.82)}}
+.sidebar-header h2 span:first-of-type{background:linear-gradient(135deg,var(--accent),#4fc3f7);
+  box-shadow:0 2px 10px var(--accent-glow)}
+/* 两个图标也是 span，会继承上面的徽章胶囊样式，这里还原成纯图标 */
+#themeToggle,#settingsToggle{background:none;padding:0;border-radius:0;box-shadow:none}
+
+/* 主按钮：渐变 + 掠光 */
+.btn-new,.input-area button,.set-action:not(.ghost),.dialog-btn-ok{
+  background:linear-gradient(135deg,var(--accent),var(--accent-hover));
+  box-shadow:0 4px 16px var(--accent-glow);position:relative;overflow:hidden}
+.btn-new::after,.input-area button::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.28) 50%,transparent 70%);
+  transform:translateX(-120%);transition:transform .6s ease}
+.btn-new:hover::after,.input-area button:hover:not(:disabled)::after{transform:translateX(120%)}
+
+/* 会话条目：选中态左侧发光指示条 */
+.si{border-radius:10px}
+.si.active{background:var(--active-bg);box-shadow:inset 0 0 0 1px var(--active-border)}
+.si.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);
+  width:3px;height:60%;border-radius:0 3px 3px 0;background:var(--accent);
+  box-shadow:0 0 10px var(--accent)}
+.si .meta{font-family:ui-monospace,SFMono-Regular,monospace;font-size:10px;letter-spacing:.2px}
+
+/* 消息气泡 */
+.msg.user{background:linear-gradient(135deg,var(--msg-user),var(--accent-hover));
+  box-shadow:0 4px 18px var(--accent-glow)}
+.msg.assistant{backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  box-shadow:var(--shadow),inset 0 1px 0 var(--hairline)}
+.msg.tool{font-family:ui-monospace,SFMono-Regular,monospace;font-size:11px;
+  border-style:dashed;letter-spacing:.2px}
+
+/* 输入区聚焦光晕 */
+.input-area input:focus{box-shadow:0 0 0 3px var(--accent-glow),0 0 22px var(--accent-glow)}
+
+/* thinking 指示器：扫描线 + 跳动圆点 */
+.waiting{position:relative;font-family:ui-monospace,SFMono-Regular,monospace;
+  font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--accent);opacity:.9}
+.waiting::before{content:'';position:absolute;left:50%;top:0;width:180px;height:1px;
+  transform:translateX(-50%);
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  animation:scan 1.8s ease-in-out infinite}
+@keyframes scan{0%,100%{opacity:.15;width:60px}50%{opacity:.9;width:200px}}
+.waiting::after{content:'';display:inline-block;width:3px;height:3px;border-radius:50%;
+  margin-left:7px;vertical-align:middle;background:var(--accent);
+  box-shadow:8px 0 0 var(--accent),16px 0 0 var(--accent);
+  animation:dots 1.4s steps(1) infinite}
+@keyframes dots{0%{box-shadow:8px 0 0 transparent,16px 0 0 transparent}
+  33%{box-shadow:8px 0 0 var(--accent),16px 0 0 transparent}
+  66%{box-shadow:8px 0 0 var(--accent),16px 0 0 var(--accent)}}
+
+/* 审批卡片：强调边框辉光 */
+.approval-card{box-shadow:0 0 0 1px var(--accent-glow),0 12px 40px rgba(0,0,0,.16);
+  background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+
+/* 滚动条 */
+*::-webkit-scrollbar{width:9px;height:9px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:var(--border);border-radius:9px;
+  border:2px solid transparent;background-clip:content-box}
+*::-webkit-scrollbar-thumb:hover{background:var(--accent);background-clip:content-box}
+
+/* 降低动效偏好 */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
 </style>
 </head>
 <body>
