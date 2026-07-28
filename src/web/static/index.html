@@ -65,9 +65,6 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 .si .btn-group button{width:22px;height:22px;border:none;border-radius:6px;cursor:pointer;font-size:10px;line-height:22px;text-align:center;padding:0;transition:all .15s}
 .si .btn-rename{background:var(--bg);color:var(--text2)}.si .btn-rename:hover{background:var(--active-bg);color:var(--accent)}
 .si .btn-delete{background:var(--bg);color:var(--text2)}.si .btn-delete:hover{background:var(--danger-bg);color:var(--danger)}
-.btn-upload{display:flex;align-items:center;justify-content:center;gap:6px;margin:4px 20px 12px;padding:8px;background:var(--bg);color:var(--text2);border:1.5px dashed var(--border);border-radius:var(--radius);cursor:pointer;font-size:12px;font-family:inherit;transition:all .2s ease;position:relative}
-.btn-upload:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-glow)}
-.btn-upload input{position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer}
 
 .main{flex:1;display:flex;flex-direction:column;background:var(--bg)}
 #messages{flex:1;overflow-y:auto;padding:24px 32px;display:flex;flex-direction:column;gap:12px}
@@ -79,7 +76,7 @@ body.dark{background:#12121a;--bg:#12121a;--surface:#1a1a28;--surface-raised:#22
 .placeholder{text-align:center;color:var(--text2);margin-top:80px;font-size:14px;line-height:2}
 
 /* Attachment bar — moved above input */
-.attach-bar{display:none;padding:10px 24px 0 24px;gap:8px;flex-wrap:wrap}
+.attach-bar{display:none;padding:0 30px 8px;gap:8px;flex-wrap:wrap}
 .attach-bar.show{display:flex}
 .attach-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 10px 5px 12px;background:var(--surface);border:1px solid var(--border);border-radius:20px;font-size:11px;color:var(--text);box-shadow:var(--shadow);transition:all .2s}
 .attach-chip .name{max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -358,6 +355,37 @@ body{background:var(--bg)}
 .welcome .hint kbd{font-family:inherit;font-size:11px;font-weight:600;color:var(--text);
   background:var(--surface-raised);border:1px solid var(--border);
   border-radius:5px;padding:1px 6px}
+
+/* ── 输入区：加号 / 输入框 / 发送 合成一个整体 ────────────── */
+/* 改为 block：composer 作为唯一可见行需要占满宽度，
+   而 .input-area 原本的 flex 会按内容收缩它 */
+.input-area{display:block;position:relative;padding:14px 28px 24px}
+.composer{position:relative;display:flex;align-items:flex-end;gap:8px;
+  padding:8px 8px 8px 10px;
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:24px;box-shadow:var(--shadow);
+  transition:border-color .2s ease,box-shadow .2s ease}
+.composer:focus-within{border-color:var(--accent);
+  box-shadow:0 0 0 4px var(--accent-glow),var(--shadow-lg)}
+
+.composer-attach{display:flex;align-items:center;justify-content:center;
+  width:36px;height:36px;flex-shrink:0;border-radius:50%;cursor:pointer;
+  color:var(--text2);background:transparent;
+  transition:background .18s ease,color .18s ease,transform .18s ease}
+.composer-attach:hover{background:var(--active-bg);color:var(--accent);transform:rotate(90deg)}
+.composer-attach input[type=file]{display:none}
+
+/* 覆盖通用 .input-area input：边框和阴影已由 .composer 承担 */
+.composer #input{flex:1;min-height:36px;padding:8px 6px;
+  border:none;background:transparent;box-shadow:none;
+  font-size:15px;line-height:1.5;color:var(--text);
+  font-family:inherit;outline:none}
+.composer #input:focus{border:none;box-shadow:none}
+.composer #input::placeholder{color:var(--text2)}
+
+.composer #btnSend{display:flex;align-items:center;justify-content:center;
+  width:36px;height:36px;flex-shrink:0;padding:0;gap:0;border-radius:50%}
+.composer #btnSend:disabled{opacity:.35}
 </style>
 </head>
 <body>
@@ -368,7 +396,6 @@ body{background:var(--bg)}
 <button class=btn-new id=btnNew><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>New Session</button>
 <input id=sessionSearch placeholder="🔍 Search sessions..." style="width:calc(100% - 40px);margin:4px 20px 6px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);font-size:12px;font-family:inherit;outline:none">
 <div id=session-list></div>
-<label class="btn-upload" id="btnUpload">📎 Attach File<input type="file" id="fileInput"></label>
 </div>
 <div class="settings-overlay" id="settingsOverlay">
   <div class="settings-box">
@@ -394,11 +421,16 @@ body{background:var(--bg)}
 <div class="waiting" id="waiting">Claw is thinking...</div>
 <div class="attach-bar" id="attachBar"></div>
 <div class=input-area>
-<input id=input placeholder="Type a message..." disabled>
-<button id=btnSend disabled>
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7L13 1L7 13L5 9L1 7Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-  Send
-</button>
+<div class="composer">
+  <label class="composer-attach" id="btnUpload" title="添加附件">
+    <svg width="17" height="17" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <input type="file" id="fileInput">
+  </label>
+  <input id=input placeholder="Type a message..." disabled>
+  <button id=btnSend disabled title="发送">
+    <svg width="15" height="15" viewBox="0 0 14 14" fill="none"><path d="M1 7L13 1L7 13L5 9L1 7Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+</div>
 <div class="cmd-menu" id="cmdMenu"></div>
 </div>
 </div>
