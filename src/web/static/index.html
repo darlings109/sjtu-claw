@@ -324,6 +324,40 @@ body{background:var(--bg)}
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
 }
+
+/* ── 欢迎屏 ──────────────────────────────────────────── */
+.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;padding:40px 24px;text-align:center;user-select:none}
+.welcome-mark{position:relative;margin-bottom:26px}
+.welcome-mark svg{display:block;filter:drop-shadow(0 6px 24px var(--accent-glow))}
+.welcome-mark::after{content:'';position:absolute;inset:-30%;border-radius:50%;
+  background:radial-gradient(circle,var(--accent-glow),transparent 68%);
+  opacity:.5;z-index:-1;animation:breathe 5s ease-in-out infinite}
+@keyframes breathe{0%,100%{transform:scale(.9);opacity:.35}50%{transform:scale(1.08);opacity:.62}}
+
+.welcome h1{margin:0;font-size:clamp(38px,7vw,68px);font-weight:800;letter-spacing:-.03em;
+  line-height:1.05;
+  background:linear-gradient(100deg,var(--accent) 0%,#4fc3f7 38%,var(--accent) 72%,#b388ff 100%);
+  background-size:220% 100%;-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:transparent;
+  animation:sheen 7s linear infinite}
+@keyframes sheen{to{background-position:220% 0}}
+
+.welcome .tagline{margin:14px 0 0;font-size:clamp(14px,1.7vw,19px);font-weight:500;
+  color:var(--text2);letter-spacing:.02em}
+.welcome .tagline b{color:var(--accent);font-weight:700}
+
+.welcome .rule{width:min(340px,60%);height:1px;margin:30px 0 22px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.45}
+
+.welcome .hints{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.welcome .hint{display:inline-flex;align-items:center;gap:7px;padding:7px 14px;
+  font-size:12px;color:var(--text2);background:var(--glass);
+  border:1px solid var(--hairline);border-radius:20px;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.welcome .hint kbd{font-family:inherit;font-size:11px;font-weight:600;color:var(--text);
+  background:var(--surface-raised);border:1px solid var(--border);
+  border-radius:5px;padding:1px 6px}
 </style>
 </head>
 <body>
@@ -356,7 +390,7 @@ body{background:var(--bg)}
 <div class="task-overlay" id="taskOverlay"><div class="task-box" id="taskBox"></div></div>
 <div class=main>
 <div class="notification-area" id="notification-area"><div id="notifications"></div></div>
-<div id=messages><div class=placeholder>Select a session to start chatting<br><span style=font-size:11px;color:var(--text2)>Ctrl+R 刷新 · Ctrl+D 删除</span></div></div>
+<div id=messages></div>
 <div class="waiting" id="waiting">Claw is thinking...</div>
 <div class="attach-bar" id="attachBar"></div>
 <div class=input-area>
@@ -371,6 +405,31 @@ body{background:var(--bg)}
 <script>
 var cur = null;
 var lastSeen = {};
+
+// 欢迎屏：无会话时的空状态。三处复用，故抽成常量。
+var WELCOME_HTML =
+  '<div class="welcome">' +
+    '<div class="welcome-mark">' +
+      '<svg width="76" height="76" viewBox="0 0 76 76" fill="none" aria-hidden="true">' +
+        '<defs><linearGradient id="wg" x1="0" y1="76" x2="76" y2="0">' +
+          '<stop offset="0" stop-color="#4fc3f7"/><stop offset="1" stop-color="#7c7ff0"/>' +
+        '</linearGradient></defs>' +
+        '<circle cx="38" cy="38" r="35" stroke="url(#wg)" stroke-width="2" opacity=".45"/>' +
+        '<path d="M22 52C30 40 40 30 54 24" stroke="url(#wg)" stroke-width="5" stroke-linecap="round"/>' +
+        '<path d="M28 57C36 45 46 35 60 29" stroke="url(#wg)" stroke-width="5" stroke-linecap="round" opacity=".78"/>' +
+        '<path d="M16 46C24 34 34 24 48 18" stroke="url(#wg)" stroke-width="5" stroke-linecap="round" opacity=".78"/>' +
+      '</svg>' +
+    '</div>' +
+    '<h1>SJTU-CLAW</h1>' +
+    '<p class="tagline">your best <b>workfriend</b></p>' +
+    '<div class="rule"></div>' +
+    '<div class="hints">' +
+      '<span class="hint"><kbd>Ctrl</kbd>+<kbd>N</kbd> 新建会话</span>' +
+      '<span class="hint"><kbd>Ctrl</kbd>+<kbd>R</kbd> 刷新</span>' +
+      '<span class="hint"><kbd>Ctrl</kbd>+<kbd>D</kbd> 删除</span>' +
+      '<span class="hint"><kbd>/</kbd> 命令</span>' +
+    '</div>' +
+  '</div>';
 
 function loadSeen() {
   try { lastSeen = JSON.parse(localStorage.getItem('seen') || '{}'); } catch(e){ lastSeen = {}; }
@@ -664,7 +723,7 @@ function showDeleteDialog(id) {
   document.getElementById("deleteOkBtn").onclick = function(){
     api('/api/sessions/' + id, {method:'DELETE'}).then(function(){
       overlay.classList.remove("show");
-      if (cur === id) { cur = null; document.getElementById('messages').innerHTML = '<div class="placeholder">Select a session</div>'; document.getElementById('input').disabled = true; document.getElementById('btnSend').disabled = true; }
+      if (cur === id) { cur = null; document.getElementById('messages').innerHTML = WELCOME_HTML; document.getElementById('input').disabled = true; document.getElementById('btnSend').disabled = true; }
       load();
     }).catch(function(){});
   };
@@ -970,6 +1029,7 @@ var COMMANDS = [
 ];
 
 document.addEventListener('DOMContentLoaded', function(){
+  document.getElementById('messages').innerHTML = WELCOME_HTML;
   document.getElementById('btnNew').addEventListener('click', newSession);
   document.getElementById('btnSend').addEventListener('click', send);
   document.getElementById('input').addEventListener('keydown', function(e){ if (e.key === 'Enter') send(); });
