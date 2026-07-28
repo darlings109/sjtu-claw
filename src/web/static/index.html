@@ -376,9 +376,19 @@ function loadSeen() {
   try { lastSeen = JSON.parse(localStorage.getItem('seen') || '{}'); } catch(e){ lastSeen = {}; }
 }
 function saveSeen() {
-  try { localStorage.setItem('seen', JSON.stringify(lastSeen)); } catch(e){} 
+  try { localStorage.setItem('seen', JSON.stringify(lastSeen)); } catch(e){}
 }
 loadSeen();
+
+// 红点：仅当"上次看过之后又有了新回复"才亮。
+// 没有记录 ≠ 未读 —— 首次打开浏览器时本地无任何记录，若当成未读会导致
+// 所有会话齐刷刷标红。此时按已读处理，并把当前 updated_at 落盘作为基线。
+function isUnread(s) {
+  if (s.session_id === cur) return false;
+  var seen = lastSeen[s.session_id];
+  if (!seen) { lastSeen[s.session_id] = s.updated_at; return false; }
+  return seen < s.updated_at;
+}
 
 // Settings state
 var settings = {
@@ -534,19 +544,24 @@ function load(filter) {
   api('/api/sessions').then(function(ss){
     if (filter) ss = ss.filter(function(s){ return s.title.toLowerCase().indexOf(filter) !== -1 || s.session_id.toLowerCase().indexOf(filter) !== -1; });
     var h = '';
+    var seenDirty = false;
     for (var i = 0; i < ss.length; i++) {
       var s = ss[i];
       var a = (s.session_id === cur) ? ' active' : '';
       var t = s.updated_at ? s.updated_at.slice(5,16) : '';
+      var before = lastSeen[s.session_id];
+      var unread = isUnread(s);
+      if (lastSeen[s.session_id] !== before) seenDirty = true;
       h += '<div class="si' + a + '" data-id="' + s.session_id + '">' +
         '<div class="title">' + esc(s.title) + '</div>' +
-        '<div class="meta">' + t + ' <span class="badge">' + s.message_count + ' msgs</span> <span class="dot' + (s.session_id !== cur && (!lastSeen[s.session_id] || lastSeen[s.session_id] < s.updated_at) ? ' show' : '') + '"></span></div>' +
+        '<div class="meta">' + t + ' <span class="badge">' + s.message_count + ' msgs</span> <span class="dot' + (unread ? ' show' : '') + '"></span></div>' +
         '<div class="btn-group">' +
         '<button class="btn-rename">✎</button>' +
         '<button class="btn-delete">✕</button>' +
         '</div>' +
         '</div>';
     }
+    if (seenDirty) saveSeen();
     document.getElementById('session-list').innerHTML = h;
   }).catch(function(){});
 }
@@ -586,7 +601,9 @@ function switchTo(id) {
     loadAttachments(id);
     startApprovalPoll();
     // Mark as seen
-    lastSeen[id] = new Date().toISOString();
+    // 存 session 自己的 updated_at，而不是浏览器时间：服务端写的是本地朴素
+    // 时间（无时区），toISOString() 给的是 UTC，两者字符串比较必然错位。
+    lastSeen[id] = s.updated_at || lastSeen[id];
     saveSeen();
     load();
     var savedTheme = localStorage.getItem('theme');

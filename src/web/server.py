@@ -233,6 +233,7 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                 "title": session.title,
                 "messages": [{"role": m["role"], "content": m["content"]} for m in session.messages],
                 "message_count": session.message_count,
+                "updated_at": session.updated_at,
             })
 
         # Static files (fallback)
