@@ -41,14 +41,20 @@ foreach ($c in $candidates) {
 }
 if (-not $pyw) { throw "未找到本机可用的 pythonw.exe（需已安装 requests / python-dotenv）" }
 
+# 图标复制到本机盘符再引用：Explorer 对 UNC 路径上的 .ico 渲染不可靠，
+# 直接指向 \\wsl.localhost 会退化成默认图标。源文件仍留在项目里。
+$localIcon = Join-Path $env:LOCALAPPDATA 'SJTUClaw\sjtuclaw.ico'
+New-Item -ItemType Directory -Force -Path (Split-Path $localIcon -Parent) | Out-Null
+Copy-Item -LiteralPath $icon -Destination $localIcon -Force
+
 $sc = (New-Object -ComObject WScript.Shell).CreateShortcut($link)
 $sc.TargetPath       = $pyw
 $sc.Arguments        = '"{0}"' -f $boot
-$sc.IconLocation     = "$icon,0"
+$sc.IconLocation     = "$localIcon,0"
 $sc.Description      = 'SJTUClaw — 启动 Gateway 并打开界面'
 $sc.Save()
 
 Write-Output "已创建：$link"
 Write-Output "  解释器：$pyw"
 Write-Output "  启动脚本：$boot"
-Write-Output "  图标：$icon"
+Write-Output "  图标：$localIcon"
