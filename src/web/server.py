@@ -231,7 +231,10 @@ class GatewayHandler(SimpleHTTPRequestHandler):
             return self._json({
                 "session_id": session.session_id,
                 "title": session.title,
-                "messages": [{"role": m["role"], "content": m["content"]} for m in session.messages],
+                "messages": [
+                    {"role": m["role"], "content": m["content"], "ts": m.get("ts", "")}
+                    for m in session.messages
+                ],
                 "message_count": session.message_count,
                 "updated_at": session.updated_at,
             })
@@ -407,6 +410,32 @@ class GatewayHandler(SimpleHTTPRequestHandler):
                 save_session(session)
                 return self._json({"status": "renamed", "session_id": sid, "title": title})
             return self._error("required", "Title required", 400)
+
+        # POST .../regenerate — 回退到第 index 条消息之前，返回该轮的用户输入
+        # 前端拿到 content 后重新走 stream 端点，等价于"重跑这一轮"
+        if '/regenerate' in path:
+            session = load_session(sid)
+            if session is None:
+                return self._error("session_not_found", "Session not found", 404)
+            body = self._read_json()
+            try:
+                index = int(body.get('index', -1))
+            except (TypeError, ValueError):
+                return self._error("required", "Valid index required", 400)
+            if not 0 <= index < len(session.messages):
+                return self._error("out_of_range", "Index out of range", 400)
+
+            # 从 index 往前找最近的用户消息，它就是要重发的那一轮
+            start = index
+            while start >= 0 and session.messages[start].get("role") != "user":
+                start -= 1
+            if start < 0:
+                return self._error("no_user_turn", "No user message to replay", 400)
+
+            content = session.messages[start].get("content", "")
+            session.messages = session.messages[:start]
+            save_session(session)
+            return self._json({"status": "truncated", "content": content})
 
         # POST .../attachments — upload file (multipart/form-data)
         if '/attachments' in path and not '/messages' in path:

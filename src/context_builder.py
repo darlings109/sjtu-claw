@@ -81,6 +81,10 @@ def build_context(session: Session) -> List[Dict[str, str]]:
         messages.append({"role": "system", "content": f"会话摘要：{session.summary}"})
 
     # 5. Session 历史 messages
-    messages.extend(_drop_orphan_tool_messages(session.messages))
+    # 剥掉 ts：那是给前端显示时间用的本地字段，API 只接受它认识的键
+    for m in _drop_orphan_tool_messages(session.messages):
+        if "ts" in m:
+            m = {k: v for k, v in m.items() if k != "ts"}
+        messages.append(m)
 
     return messages

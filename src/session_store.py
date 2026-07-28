@@ -53,7 +53,7 @@ def append_message(
         session = load_session(session_id)
         if session is None:
             return False
-        msg = {"role": role, "content": content}
+        msg = {"role": role, "content": content, "ts": _now()}
         if extra:
             msg.update(extra)
         session.messages.append(msg)

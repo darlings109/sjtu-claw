@@ -10,7 +10,7 @@ from src.config import LLMConfig
 from src.context_builder import build_context
 from src.llm_client import chat_completion
 from src.memory_store import consolidate_memories, extract_memories
-from src.session_store import Session, save_session, load_session
+from src.session_store import Session, save_session, load_session, _now
 from src.tool_registry import get_registry
 
 
@@ -32,7 +32,7 @@ def process_message(
     user_content: str,
 ) -> str:
     """处理一条用户消息：单轮 LLM + tool calling 循环"""
-    session.messages.append({"role": "user", "content": user_content})
+    session.messages.append({"role": "user", "content": user_content, "ts": _now()})
 
     # Agent loop: LLM → tool → LLM → tool → … → final
     # 限制 tool call 轮次，防止模型死循环
@@ -53,7 +53,7 @@ def process_message(
         )
 
         # 记录 assistant 回复（带 tool_calls，否则下一轮 tool 消息会成为孤儿）
-        assistant_msg = {"role": "assistant", "content": content}
+        assistant_msg = {"role": "assistant", "content": content, "ts": _now()}
         if tool_calls:
             assistant_msg["tool_calls"] = [_to_api_tool_call(tc) for tc in tool_calls]
         session.messages.append(assistant_msg)
@@ -78,6 +78,7 @@ def process_message(
                 "role": "tool",
                 "tool_call_id": tool_id,
                 "content": result,
+                "ts": _now(),
             })
 
         session.messages.extend(tool_results)

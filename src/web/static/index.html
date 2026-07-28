@@ -40,6 +40,29 @@ body.dark{background:#101012;--bg:#101012;--surface:#18181b;--surface-raised:#20
 .msg .cpbtn{position:absolute;top:6px;right:6px;width:24px;height:24px;border:none;border-radius:6px;background:var(--bg);color:var(--text2);cursor:pointer;font-size:11px;opacity:0;transition:opacity .15s;line-height:24px;text-align:center;padding:0}
 .msg:hover .cpbtn{opacity:0.6}.msg:hover .cpbtn:hover{opacity:1;background:var(--active-bg);color:var(--accent)}
 
+/* ── 消息行 + 悬停操作栏 ─────────────────────────────── */
+/* 操作栏放在气泡外的包裹层：气泡自身 overflow 不可见，
+   而且 .msg 是 flex 子项，直接塞按钮会参与布局挤压气泡宽度 */
+.mrow{display:flex;flex-direction:column;max-width:72%;gap:4px}
+.mrow.user{align-self:flex-end;align-items:flex-end}
+.mrow.assistant,.mrow.tool{align-self:flex-start;align-items:flex-start}
+.mrow.tool{align-self:center;max-width:90%;align-items:center}
+.mrow .msg{max-width:100%}
+
+.mbar{display:flex;align-items:center;gap:4px;height:20px;padding:0 4px;
+  opacity:0;transform:translateY(-2px);pointer-events:none;
+  transition:opacity .16s ease,transform .16s ease}
+.mrow:hover .mbar{opacity:1;transform:translateY(0);pointer-events:auto}
+.mbar .mts{font-family:ui-monospace,SFMono-Regular,monospace;font-size:10px;
+  color:var(--text2);letter-spacing:.2px;margin-right:2px}
+.mbar button{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 7px;
+  border:1px solid var(--border);border-radius:6px;background:var(--surface);
+  color:var(--text2);font-family:inherit;font-size:10px;cursor:pointer;
+  transition:all .14s ease}
+.mbar button:hover{color:var(--text);border-color:var(--active-border);
+  background:var(--hover-bg)}
+.mbar button.done{color:var(--text);border-color:var(--active-border)}
+
 
 .sidebar{width:280px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
 .sidebar-header{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
@@ -460,8 +483,108 @@ var WELCOME_HTML =
     '</div>' +
   '</div>';
 
-function loadSeen() {
-  try { lastSeen = JSON.parse(localStorage.getItem('seen') || '{}'); } catch(e){ lastSeen = {}; }
+// 渲染一条消息：气泡 + 悬停操作栏（时间 / 复制 / 重跑）
+// index 为 null 时表示流式新增的临时消息，尚无稳定下标，不给重跑按钮
+function msgRow(role, contentHtml, rawText, ts, index) {
+  var row = document.createElement('div');
+  row.className = 'mrow ' + role;
+
+  var bubble = document.createElement('div');
+  bubble.className = 'msg ' + role;
+  bubble.innerHTML = contentHtml;
+
+  var bar = document.createElement('div');
+  bar.className = 'mbar';
+  if (ts) {
+    var t = document.createElement('span');
+    t.className = 'mts';
+    t.textContent = fmtTs(ts);
+    bar.appendChild(t);
+  }
+
+  var copy = document.createElement('button');
+  copy.type = 'button';
+  copy.title = '复制';
+  copy.textContent = 'Copy';
+  copy.addEventListener('click', function(){
+    var text = rawText != null ? rawText : bubble.textContent;
+    navigator.clipboard.writeText(text).then(function(){
+      copy.textContent = 'Copied'; copy.classList.add('done');
+      setTimeout(function(){ copy.textContent = 'Copy'; copy.classList.remove('done'); }, 1400);
+    }).catch(function(){});
+  });
+  bar.appendChild(copy);
+
+  if (index != null && role !== 'tool') {
+    var re = document.createElement('button');
+    re.type = 'button';
+    re.title = '从这一轮重新开始';
+    re.textContent = 'Restart';
+    re.addEventListener('click', function(){ restartFrom(index); });
+    bar.appendChild(re);
+  }
+
+  row.appendChild(bubble);
+  row.appendChild(bar);
+  return row;
+}
+
+// ts 是服务端的本地朴素时间（无时区），当天只显示时分，跨天补日期
+function fmtTs(ts) {
+  if (!ts) return '';
+  var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(ts);
+  if (!m) return '';
+  var now = new Date();
+  var sameDay = +m[1] === now.getFullYear() && +m[2] === now.getMonth() + 1 && +m[3] === now.getDate();
+  return sameDay ? m[4] + ':' + m[5] : m[2] + '-' + m[3] + ' ' + m[4] + ':' + m[5];
+}
+
+// 回退到该轮之前并重发原始输入
+function restartFrom(index) {
+  if (!cur) return;
+  api('/api/sessions/' + encodeURIComponent(cur) + '/regenerate', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({index: index}),
+  }).then(function(r){
+    var input = document.getElementById('input');
+    // 先重绘出截断后的历史，再把原输入填回去发送
+    var el = document.getElementById('messages');
+    el.innerHTML = '';
+    input.value = r.content || '';
+    send();
+  }).catch(function(){});
+}
+
+// 发送按钮的图标：发送中会被替换成 '...'，恢复时用这个，
+// 不能带 "Send" 文字 —— 新 composer 里它是圆形图标按钮
+var SEND_ICON = '<svg width="15" height="15" viewBox="0 0 14 14" fill="none"><path d="M1 7L13 1L7 13L5 9L1 7Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+// 把一次 /api/sessions/<id> 的响应渲染成消息列表
+function renderMessages(el, messages) {
+  el.innerHTML = '';
+  for (var i = 0; i < messages.length; i++) {
+    var m = messages[i];
+    var html = m.role === 'assistant'
+      ? '<div class="md">' + marked.parse(esc(m.content)) + '</div>'
+      : esc(m.content);
+    el.appendChild(msgRow(m.role, html, m.content, m.ts, i));
+  }
+  el.scrollTop = el.scrollHeight;
+}
+
+// 重绘当前会话的消息列表
+// 流式过程中新增的气泡没有稳定下标，重跑按钮无法生效；回复结束后
+// 拉一次历史重绘，让按钮拿到真实 index
+function repaintMessages() {
+  if (!cur) return;
+  var el = document.getElementById('messages');
+  api('/api/sessions/' + encodeURIComponent(cur)).then(function(s){
+    renderMessages(el, s.messages);
+  }).catch(function(){});
+}
+
+function loadSeen() {  try { lastSeen = JSON.parse(localStorage.getItem('seen') || '{}'); } catch(e){ lastSeen = {}; }
 }
 function saveSeen() {
   try { localStorage.setItem('seen', JSON.stringify(lastSeen)); } catch(e){}
@@ -675,17 +798,8 @@ function switchTo(id) {
   var el = document.getElementById('messages');
   el.innerHTML = '<div style="text-align:center;color:var(--text2);margin:40px">Loading...</div>';
   api('/api/sessions/' + id).then(function(s){
-    var h = '';
-    for (var i = 0; i < s.messages.length; i++) {
-      var m = s.messages[i];
-      if (m.role === 'assistant') {
-          h += '<div class="msg assistant" style="position:relative"><button class="cpbtn" onclick="navigator.clipboard.writeText(this.parentNode.querySelector(\'.md\').textContent);this.textContent=\'✓\';setTimeout(()=>this.textContent=\'📋\',1500)">📋</button><div class="md">' + marked.parse(esc(m.content)) + '</div></div>';
-        } else {
-          h += '<div class="msg ' + m.role + '" style="position:relative"><button class="cpbtn" onclick="navigator.clipboard.writeText(this.parentNode.textContent.replace(/📋/,\'\').trim());this.textContent=\'✓\';setTimeout(()=>this.textContent=\'📋\',1500)">📋</button>' + esc(m.content) + '</div>';
-        }
-    }
-    el.innerHTML = h || '<div class="placeholder">No messages yet</div>';
-    el.scrollTop = el.scrollHeight;
+    renderMessages(el, s.messages);
+    if (!s.messages.length) el.innerHTML = '<div class="placeholder">No messages yet</div>';
     loadAttachments(id);
     startApprovalPoll();
     // Mark as seen
@@ -805,10 +919,10 @@ function send() {
     document.getElementById('waiting').style.display = 'block';
     var el = document.getElementById('messages');
     if (t) {
-	      el.innerHTML += '<div class="msg user">' + esc(t) + '</div>';
+	      el.appendChild(msgRow('user', esc(t), t, null, null));
 	    }
 	    if (hasAttachments) {
-	      el.innerHTML += '<div class="msg tool">📎 发送了文件：' + attachments.map(function(f){ return esc(f.original_name || f.filename); }).join(', ') + '</div>';
+	      el.appendChild(msgRow('tool', '📎 发送了文件：' + attachments.map(function(f){ return esc(f.original_name || f.filename); }).join(', '), null, null, null));
 	      document.getElementById('attachBar').classList.remove('show');
 	    }
 
@@ -833,17 +947,16 @@ function send() {
           if (ev.type === 'token') {
             document.getElementById('waiting').style.display = 'none';
             if (!msgDiv) {
-              msgDiv = document.createElement('div');
-              msgDiv.className = 'msg assistant';
-              msgDiv.innerHTML = '<div class="md"></div>';
-              el.appendChild(msgDiv);
+              var row = msgRow('assistant', '<div class="md"></div>', '', null, null);
+              el.appendChild(row);
+              msgDiv = row.querySelector('.msg');
             }
             mdContent += ev.content || '';
             msgDiv.querySelector('.md').innerHTML = marked.parse(esc(mdContent));
             el.scrollTop = el.scrollHeight;
           } else if (ev.type === 'text_done') {
             if (!msgDiv) {
-              el.innerHTML += '<div class="msg assistant"><div class="md">' + marked.parse(esc(ev.content || '')) + '</div></div>';
+              el.appendChild(msgRow('assistant', '<div class="md">' + marked.parse(esc(ev.content || '')) + '</div>', ev.content || '', null, null));
             } else {
               mdContent = ev.content || '';
               msgDiv.querySelector('.md').innerHTML = marked.parse(esc(mdContent));
@@ -851,10 +964,9 @@ function send() {
             el.scrollTop = el.scrollHeight;
           } else if (ev.type === 'tool_call') {
             if (!msgDiv) {
-              msgDiv = document.createElement('div');
-              msgDiv.className = 'msg assistant';
-              msgDiv.innerHTML = '<div class="md"></div>';
-              el.appendChild(msgDiv);
+              var row2 = msgRow('assistant', '<div class="md"></div>', '', null, null);
+              el.appendChild(row2);
+              msgDiv = row2.querySelector('.msg');
             }
             mdContent += '\n\n🔧 [' + (ev.name || 'tool') + ']';
             msgDiv.querySelector('.md').innerHTML = marked.parse(esc(mdContent));
@@ -875,8 +987,9 @@ function send() {
         });
       }
       load();
+      repaintMessages();
       btn.disabled = false; input.disabled = false;
-      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7L13 1L7 13L5 9L1 7Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Send';
+      btn.innerHTML = SEND_ICON;
       input.focus();
       document.getElementById('waiting').style.display = 'none';
     };
@@ -907,17 +1020,16 @@ function send() {
           if (ev.type === 'token') {
             document.getElementById('waiting').style.display = 'none';
             if (!msgDiv) {
-              msgDiv = document.createElement('div');
-              msgDiv.className = 'msg assistant';
-              msgDiv.innerHTML = '<div class="md"></div>';
-              el.appendChild(msgDiv);
+              var row3 = msgRow('assistant', '<div class="md"></div>', '', null, null);
+              el.appendChild(row3);
+              msgDiv = row3.querySelector('.msg');
             }
             mdContent += ev.content || '';
             msgDiv.querySelector('.md').innerHTML = marked.parse(esc(mdContent));
             el.scrollTop = el.scrollHeight;
           } else if (ev.type === 'text_done') {
             if (!msgDiv) {
-              el.innerHTML += '<div class="msg assistant"><div class="md">' + marked.parse(esc(ev.content || '')) + '</div></div>';
+              el.appendChild(msgRow('assistant', '<div class="md">' + marked.parse(esc(ev.content || '')) + '</div>', ev.content || '', null, null));
             } else {
               mdContent = ev.content || '';
               msgDiv.querySelector('.md').innerHTML = marked.parse(esc(mdContent));
@@ -925,10 +1037,9 @@ function send() {
             el.scrollTop = el.scrollHeight;
           } else if (ev.type === 'tool_call') {
             if (!msgDiv) {
-              msgDiv = document.createElement('div');
-              msgDiv.className = 'msg assistant';
-              msgDiv.innerHTML = '<div class="md"></div>';
-              el.appendChild(msgDiv);
+              var row4 = msgRow('assistant', '<div class="md"></div>', '', null, null);
+              el.appendChild(row4);
+              msgDiv = row4.querySelector('.msg');
             }
             mdContent += '\n\n🔧 [' + (ev.name || 'tool') + ']';
             msgDiv.querySelector('.md').innerHTML = marked.parse(esc(mdContent));
@@ -946,6 +1057,7 @@ function send() {
         });
       }
       load();
+      repaintMessages();
       resetSend(btn, input);
     };
     xhr.onerror = function(){
@@ -1033,7 +1145,7 @@ function openWorkspace() {
 
 function resetSend(btn, input) {
   btn.disabled = false; input.disabled = false;
-  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7L13 1L7 13L5 9L1 7Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Send';
+  btn.innerHTML = SEND_ICON;
   input.focus();
   document.getElementById('waiting').style.display = 'none';
 }
